@@ -1,0 +1,136 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+import sys, os, argparse, ctypes, numpy as np, zmq
+from collections import deque
+import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
+import tact, single
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-t', default=-1, type=int, help='arm type [0: left, 1: right]')
+    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5]')
+    par.add_argument('-x', action='store_true', default=False, help='real')
+    par.add_argument('-v', action='store_true', default=False, help='verbose')
+    par.add_argument('-b', action='store_true', default=False, help='use built-in pd controller (real h/w only)')
+    par.add_argument('-d', default=None, help='dispatch file: each line "<step_count> <command>"; fires command when cnt matches')
+    par.add_argument('-l', action='store_true', default=False, help='headless sim (no render window)')
+    return par.parse_args()
+
+def msgproc(msg):
+    global cnt
+    w = [s.split() for s in msg.decode().split(',')]
+    if w[0][0] == 'quit': env.finish(); sys.exit(0)
+    elif w[0][0] == 'reset': cnt = 0; return
+    if len(w) in (1, 2):
+        arm.msgproc(w[0])
+        if len(w) == 2: hand.msgproc(w[1])
+    else: print('wrong command')
+    
+        
+try: os.sched_setaffinity(0, {0})
+except Exception as e: print('set affinity failed'); sys.exit()
+
+arg = parse_args()
+if   arg.t == 0: ymltail, yaw = '-left', -90
+elif arg.t == 1: ymltail, yaw = '-right', 90
+else: print('choose arm type [0: left, 1: right]'); sys.exit(0)
+if   arg.g == 0: gname = 'h9';  import h9 as gmod
+elif arg.g == 1: gname = 'dg5'; import dg5 as gmod
+else: print('wrong gripper type'); sys.exit()
+
+#Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
+#Sim → 4 (control rate 250Hz, matches real). Real → 1 (eio already paces).
+frameskip = 1 if arg.x else 4
+cnt = 0
+
+if arg.x: #start with real H/w
+    cdll = ctypes.CDLL('eio/eio-single.so')
+    cmode = 1 if arg.b else 0
+    cdll.init(b'%d %d 1' %(arg.t, cmode)) #can channel, control-mode, hand-type
+    env = tact.CEnv(cdll, n_y=single.Controller.n_y + gmod.Controller.n_y, n_u=single.Controller.n_u + gmod.Controller.n_u, backend='real', has_pd=arg.b)
+else: #start with tact simulator
+    env = tact.Env('yml/kida%s' %ymltail, offset=[0, 0, 1.2, 0, 0, 0], render=not arg.l, redraw=16)
+    env.add('yml/%s' %(gname + ymltail), prefix='hand.', base='tcp', offset=[0.05, 0, 0, 0, 90, yaw])
+    env.add('yml/desk1')
+    env.edit('tcp', m=0.6, c=[0.05, 0, 0])
+    env.m.view = [0, 0, -0.34+1.2, 1.3, 180, 20]
+    
+ctx = zmq.Context()
+pull = ctx.socket(zmq.PULL)
+pull.bind('ipc:///dev/shm/default')       # local clients
+pull.bind('tcp://0.0.0.0:5555')           # remote clients (LAN)
+
+ppub = ctx.socket(zmq.PUB)
+ppub.setsockopt(zmq.CONFLATE, 1)
+ppub.bind('ipc:///dev/shm/proprio')       # local clients
+ppub.bind('tcp://0.0.0.0:5556')           # remote clients (LAN)
+
+# Camera publish setup. Cameras are declared in YAML (`cameras:` block, exposed as
+# env.cameras), bound to one ZMQ PUB each — local IPC plus (when the camera declares a
+# `port`) a LAN TCP socket. Rate-gating + type dispatch live in env.camera_frames();
+# here we only own the sockets. CEnv (real) returns env.cameras == [] → nothing bound
+# (use rs2/msender).
+proprio_update_cycle = 2 if arg.x else 33  # real HW ~120Hz vs sim ~30Hz
+socks = {}
+for c in env.cameras:
+    s = ctx.socket(zmq.PUB)
+    s.setsockopt(zmq.CONFLATE, 1)
+    s.bind('ipc:///dev/shm/%s' %c['name'])                   # local clients
+    if c.get('port'): s.bind('tcp://0.0.0.0:%d' %c['port'])  # remote clients (LAN)
+    socks[c['name']] = s
+
+
+# Compose multi-controller output. Each returns (tau, q_ref, qd_ref) with each
+# channel either an array or None. combine: all-None → None, else concat with
+# zero-fill for None members so length matches n_u.
+def combine(parts, sizes):
+    if all(p is None for p in parts): return None
+    return np.concatenate([p if p is not None else np.zeros(s) for p, s in zip(parts, sizes)])
+
+# Optional dispatch: file lines are "<step_count> <command>" — same format as
+# start's -d. cnt counts physics ticks (post-frameskip), so timings are wall-clock.
+dispatch = deque()
+if arg.d is not None:
+    with open(arg.d) as fin:
+        for line in fin:
+            parts = line.strip().split(maxsplit=1)
+            if len(parts) == 2: dispatch.append([int(parts[0]), parts[1]])
+
+tau = q_ref = qd_ref = None     # held between control ticks (frameskip ZOH)
+
+while True:
+    try: msg = pull.recv(flags=zmq.NOBLOCK)
+    except zmq.ZMQError: pass
+    else: msgproc(msg); continue
+
+    if dispatch and cnt == dispatch[0][0]:
+        msgproc(dispatch[0][1].encode()); print(dispatch[0]); dispatch.popleft()
+
+    if cnt == 0:
+        # rate = controller ticks/sec, fixed at 240 for both modes (matches real
+        # HW eio pacing exactly; sim with frameskip=4 actually runs at 250Hz so
+        # trajectories are ~4% faster wall-clock — negligible, not worth the
+        # branching). Arm and hand share the loop so they get the same rate.
+        arm  = single.Controller(env, 'yml/kida%s' %ymltail, rate=240, verbose=arg.v)
+        hand = gmod.Controller(env, 'yml/%s' %(gname + ymltail), rate=240, verbose=False)
+        y = env.reset()
+
+    if cnt % frameskip == 0:
+        arm_tau,  arm_qr,  arm_qdr  = arm.update(y[:arm.n_y])
+        hand_tau, hand_qr, hand_qdr = hand.update(y[arm.n_y:])
+        sizes  = [arm.n_u, hand.n_u]
+        tau    = combine([arm_tau,  hand_tau],  sizes)
+        q_ref  = combine([arm_qr,   hand_qr],   sizes)
+        qd_ref = combine([arm_qdr,  hand_qdr],  sizes)
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref)
+
+    #update priprio feedback
+    if cnt % proprio_update_cycle == 0:
+        proprio = y.astype(np.float32).tobytes()
+        ppub.send(proprio)
+
+    #update camera feedback — rate-gating + type dispatch in env.camera_frames()
+    for name, buf in env.camera_frames():
+        socks[name].send(buf)
+            
+    cnt += 1
