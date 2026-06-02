@@ -10,3 +10,5 @@ gcc eio-kida.c -W -Wall -shared -o eio/eio-kida.so -fPIC -I../dev/can -Wl,-Bsymb
 
 gcc eio-single.c -W -Wall -shared -o eio/eio-single.so -fPIC  -I../dev/can -Wl,-Bsymbolic-functions
 
+#dg5
+gcc -W -Wall -o eio/eio-dg5 eio-dg5.c -I/usr/local/include/DGSDK -lDGSDK
