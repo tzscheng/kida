@@ -70,11 +70,12 @@ ppub.bind('tcp://0.0.0.0:5556')           # remote clients (LAN)
 # Camera publish setup. Cameras are declared in YAML (`cameras:` block, exposed as
 # env.cameras), bound to one ZMQ PUB each — local IPC plus (when the camera declares a
 # `port`) a LAN TCP socket. Rate-gating + type dispatch live in env.camera_frames();
-# here we only own the sockets. CEnv (real) returns env.cameras == [] → nothing bound
+# here we only own the sockets. Capability-based (docs/backend-interface.md):
+# CEnv (real) has NO cameras attr (hasattr probes False) → nothing bound
 # (use rs2/msender).
 proprio_update_cycle = 2 if arg.x else 33  # real HW ~120Hz vs sim ~30Hz
 socks = {}
-for c in env.cameras:
+for c in getattr(env, 'cameras', []):
     s = ctx.socket(zmq.PUB)
     s.setsockopt(zmq.CONFLATE, 1)
     s.bind('ipc:///dev/shm/%s' %c['name'])                   # local clients
@@ -82,9 +83,12 @@ for c in env.cameras:
     socks[c['name']] = s
 
 
-# Compose multi-controller output. Each returns (tau, q_ref, qd_ref) with each
-# channel either an array or None. combine: all-None → None, else concat with
-# zero-fill for None members so length matches n_u.
+# Compose multi-controller output. Each returns the 5-tuple command
+# (tau, q_ref, qd_ref, kp, kd) with each channel either an array or None.
+# combine: all-None → None, else concat with zero-fill for None members so
+# length matches n_u. Zero-fill is correct for the GAIN channels too: a module
+# whose q_ref was None gets q_ref=0 AND kp=0 on its slots, so its PD term is
+# identically zero (gains multiply) — inactive, exactly as intended.
 def combine(parts, sizes):
     if all(p is None for p in parts): return None
     return np.concatenate([p if p is not None else np.zeros(s) for p, s in zip(parts, sizes)])
@@ -98,7 +102,7 @@ if arg.d is not None:
             parts = line.strip().split(maxsplit=1)
             if len(parts) == 2: dispatch.append([int(parts[0]), parts[1]])
 
-tau = q_ref = qd_ref = None     # held between control ticks (frameskip ZOH)
+tau = q_ref = qd_ref = kp = kd = None   # held between control ticks (frameskip ZOH)
 
 while True:
     try: msg = pull.recv(flags=zmq.NOBLOCK)
@@ -119,22 +123,29 @@ while True:
         y = env.reset()
 
     if cnt % frameskip == 0:
-        arm_tau,  arm_qr,  arm_qdr  = arms.update(y[:arms.n_y])
-        h1_tau,   h1_qr,   h1_qdr   = hand1.update(y[arms.n_y:arms.n_y+hand1.n_y])
-        h2_tau,   h2_qr,   h2_qdr   = hand2.update(y[arms.n_y+hand1.n_y:])
+        # 5-tuple command (tau, q_ref, qd_ref, kp, kd) per module — gains are
+        # per-decision control outputs (2026-06-07; YAML k: removed). On real
+        # the eio accepts kp/kd but ignores them (firmware owns the gains).
+        arm_tau,  arm_qr,  arm_qdr,  arm_kp, arm_kd = arms.update(y[:arms.n_y])
+        h1_tau,   h1_qr,   h1_qdr,   h1_kp,  h1_kd  = hand1.update(y[arms.n_y:arms.n_y+hand1.n_y])
+        h2_tau,   h2_qr,   h2_qdr,   h2_kp,  h2_kd  = hand2.update(y[arms.n_y+hand1.n_y:])
         sizes  = [arms.n_u, hand1.n_u, hand2.n_u]
         tau    = combine([arm_tau, h1_tau, h2_tau], sizes)
         q_ref  = combine([arm_qr,  h1_qr,  h2_qr],  sizes)
         qd_ref = combine([arm_qdr, h1_qdr, h2_qdr], sizes)
-    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref)
-    
+        kp     = combine([arm_kp,  h1_kp,  h2_kp],  sizes)
+        kd     = combine([arm_kd,  h1_kd,  h2_kd],  sizes)
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
+
     #update priprio feedback
     if cnt % proprio_update_cycle == 0:
         proprio = y.astype(np.float32).tobytes()
         ppub.send(proprio)
 
-    #update camera feedback — rate-gating + type dispatch in env.camera_frames()
-    for name, buf in env.camera_frames():
-        socks[name].send(buf)
+    #update camera feedback — capability-based: socket table is empty when the
+    #backend declared no cameras (CEnv); rate-gating + dispatch in camera_frames()
+    if socks and hasattr(env, 'camera_frames'):
+        for name, buf in env.camera_frames():
+            socks[name].send(buf)
 
     cnt += 1

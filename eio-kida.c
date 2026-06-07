@@ -163,7 +163,16 @@ void init(const char* args) {
     printf("init done\n");
 }
 
-void step(double* tau, double* q_ref, double* qd_ref, double* y){
+// 6-arg signature matching CEnv's unified step call (the 2026-06-07 5-tuple
+// command; sim.py passes tau, q_ref, qd_ref, kp, kd, y). kp/kd are ACCEPTED
+// BUT IGNORED: on this hardware the PD gains live in the drive firmware
+// (capability ledger, docs/backend-interface.md — per-step gain writes would
+// need a CAN register protocol that doesn't exist). Keeping the parameters in
+// the signature is ABI-critical: with the old 4-arg form, CEnv's 4th argument
+// (kp) landed in this function's y, so sensor feedback was written into the
+// caller's gain buffer (or NULL) — silent corruption/segfault.
+void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, double* y){
+    (void)kp; (void)kd;   // firmware owns the gains — see comment above
     double zero_tau   [14] = {0};
     double zero_q_ref [54] = {0};
     double zero_qd_ref[14] = {0};
@@ -253,7 +262,7 @@ void reset(double* y){
     double zero_q_ref[54] = {0};
     int saved = cmode;
     if (cmode == 1 || cmode == 2) cmode = 0;
-    step(zero_tau, zero_q_ref, NULL, y);
+    step(zero_tau, zero_q_ref, NULL, NULL, NULL, y);   // kp/kd ignored (firmware gains)
     cmode = saved;
 }
 

@@ -78,7 +78,14 @@ void init(const char* args) {
     printf("init done\n");
 }
 
-void step(double* tau, double* q_ref, double* qd_ref, double* y){
+// 6-arg signature matching CEnv's unified step call (the 2026-06-07 5-tuple
+// command; sim.py passes tau, q_ref, qd_ref, kp, kd, y). kp/kd are ACCEPTED
+// BUT IGNORED — the PD gains live in the drive firmware (capability ledger).
+// Keeping the parameters is ABI-critical: with the old 4-arg form, CEnv's 4th
+// argument (kp) landed in this function's y — silent corruption/segfault.
+// See eio-kida.c for the full rationale.
+void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, double* y){
+    (void)kp; (void)kd;   // firmware owns the gains
     double zero_tau[7]    = {0};
     double zero_q_ref[27] = {0};
     double zero_qd_ref[7] = {0};
@@ -173,7 +180,7 @@ void reset(double* y){
     // (treats them as zero), so reset can just pass NULL — the arm sees a zero
     // current/position command for one cycle and the hand gets zero q_ref (dg5f
     // firmware rests at zero on power-on, so this is benign).
-    step(NULL, NULL, NULL, y);
+    step(NULL, NULL, NULL, NULL, NULL, y);   // kp/kd ignored (firmware gains)
 }
 
 
