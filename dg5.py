@@ -29,6 +29,12 @@ class Controller:
         kp = np.array([1.0, 1.0, 1.0, 1.0]*5, dtype=float)
         kd = np.array([0.01, 0.01, 0.01, 0.01]*5, dtype=float)
         self.pid = tact.PIDController(kp, kd, 0, 0.005)
+        # Implicit joint-PD gains for the has_pd path (tact backend) — per-step
+        # control inputs, read by start every tick and passed to env.step(kp=, kd=).
+        # Same values the former YAML `k:` entries carried (gains are control
+        # policy, not plant — they moved out of the YAML).
+        self.kp = kp
+        self.kd = kd
         self.trj = tact.MovingAverageWaypointSmoother(20)
         self.joint_err_w = np.array([1.0, 1.0, 0.7, 0.5,  1.0, 1.0, 0.7, 0.5,  1.0, 1.0, 0.7, 0.5,  1.0, 1.0, 0.7, 0.5,  1.0, 1.0, 0.7, 0.5]) #joint error weight
 
