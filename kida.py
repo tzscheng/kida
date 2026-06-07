@@ -30,8 +30,9 @@ class Controller:
         kp = np.array([150, 150, 35, 35, 35, 15, 15]*2, dtype=float)
         kd = np.array([4.0, 4.0, 1.0, 1.0, 1.0, 0.4, 0.4]*2, dtype=float)
         self.pid = tact.PIDController(kp, kd, 0, 0.005)
-        # Implicit joint-PD gains for the has_pd path (tact backend) — per-step
-        # control inputs, read by start every tick and passed to env.step(kp=, kd=).
+        # Implicit joint-PD gains for the has_pd path (tact backend) — per-decision
+        # control outputs, returned from update() as part of the 5-tuple command
+        # (tau, q_ref, qd_ref, kp, kd); these attrs are just the gain table.
         # Same values the former YAML `k:` entries carried (gains are control
         # policy, not plant — they moved out of the YAML).
         self.kp = kp
@@ -206,7 +207,7 @@ class Controller:
 
         self.one_step_forward()
         self.q_ref_old = q_ref
-        return tau, q_ref, None
+        return tau, q_ref, None, self.kp, self.kd
 
 
         #elif self.s == 'task-ik':
