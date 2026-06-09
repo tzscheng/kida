@@ -20,12 +20,12 @@ bodies:
   - name: thumb2
     joint: {type: rev, parent: thumb1, pos: [0, 0, 0.01], euler: [0, -90, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, 0.015, 0]}
-    shapes: [{type: capsule, pos: [0, 0.015, 0], euler: [90, 0, 0], param: [0.01, 0.0075], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [0, 0.015, 0], euler: [90, 0, 0], param: [0.01, 0.0075], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: thumb3
     joint: {type: rev, parent: thumb2, pos: [0, 0.03, 0], euler: [0, 90, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, 0.02, 0]}
-    shapes: [{type: capsule, pos: [0, 0.02, 0], euler: [90, 0, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [0, 0.02, 0], euler: [90, 0, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: thumb4
     joint: {type: rev, parent: thumb3, pos: [0, 0.04, 0], damping: 0.02}
@@ -40,12 +40,12 @@ bodies:
   - name: index2
     joint: {type: rev, parent: index1, euler: [-90, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: index3
     joint: {type: rev, parent: index2, pos: [-0.04, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: index4
     joint: {type: rev, parent: index3, pos: [-0.04, 0, 0], damping: 0.02}
@@ -60,12 +60,12 @@ bodies:
   - name: middle2
     joint: {type: rev, parent: middle1, euler: [-90, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: middle3
     joint: {type: rev, parent: middle2, pos: [-0.04, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: middle4
     joint: {type: rev, parent: middle3, pos: [-0.04, 0, 0], damping: 0.02}
@@ -80,12 +80,12 @@ bodies:
   - name: ring2
     joint: {type: rev, parent: ring1, euler: [-90, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: ring3
     joint: {type: rev, parent: ring2, pos: [-0.04, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: ring4
     joint: {type: rev, parent: ring3, pos: [-0.04, 0, 0], damping: 0.02}
@@ -100,12 +100,12 @@ bodies:
   - name: little2
     joint: {type: rev, parent: little1, pos: [0, -0.02, 0.03], euler: [0, 90, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: little3
     joint: {type: rev, parent: little2, pos: [-0.04, 0, 0], euler: [-90, 0, 0], damping: 0.02}
     inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [-0.02, 0, 0]}
-    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], rgba: [0.9, 0.4, 0.9, 1.0]}]
+    shapes: [{type: capsule, pos: [-0.02, 0, 0], euler: [0, 90, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.9, 0.4, 0.9, 1.0]}]
 
   - name: little4
     joint: {type: rev, parent: little3, pos: [-0.04, 0, 0], damping: 0.02}

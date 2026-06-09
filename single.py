@@ -196,8 +196,9 @@ class Controller:
             tau = self.m.gravity(q)
 
         if self.verbose:
-            print('[%d] %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f' %(self.T, x[0], x[1], x[2], x[3], x[4], x[5]))
-
+            #print('[%d] %6.3f %6.3f %6.3f %6.3f %6.3f %6.3f' %(self.T, x[0], x[1], x[2], x[3], x[4], x[5]))
+            print('[%d] %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f' %(self.T, q[0], q[1], q[2], q[3], q[4], q[5], q[6]))
+            
         self.one_step_forward()
         self.q_ref_old = q_ref
         return tau, q_ref, None, self.kp, self.kd
