@@ -6,7 +6,7 @@ import tact, kida, dg5 as gmod
 
 def parse_args():
     par = argparse.ArgumentParser()
-    par.add_argument('-g', default=1, type=int, help='gripper type [0: h9, 1: dg5]')
+    par.add_argument('-g', default=1, type=int, help='gripper type [1: dg5]')
     par.add_argument('-x', action='store_true', default=False, help='real')
     par.add_argument('-m', action='store_true', default=False, help='mujoco')
     par.add_argument('-v', action='store_true', default=False, help='verbose')

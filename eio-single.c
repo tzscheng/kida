@@ -171,7 +171,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
      }
 
     //usleep(10000);
-    printf("[%ld] %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf | %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf\n", cnt, y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7], y[8], y[9], y[10], y[11], y[12], y[13]);
+    //printf("[%ld] %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf | %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf %8.4lf\n", cnt, y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7], y[8], y[9], y[10], y[11], y[12], y[13]);
     cnt++;
 }
 

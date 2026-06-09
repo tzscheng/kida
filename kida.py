@@ -48,7 +48,8 @@ class Controller:
         self.jtc = tact.JacobianTransposeController(self.m, {'tcp1':'6d', 'tcp2':'6d'}, Kp, Kd)
         self.trj2 = tact.SE3WaypointSmoother(20, num_frames=2) #task space trajectory (SLERP per arm)
 
-        self.sk = np.array([0, 0, 5.0, 0, 0, 0, 0]*2) #spring stiffness
+        #self.sk = np.array([0, 0, 5.0, 0, 0, 0, 0]*2) #spring stiffness
+        self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]*2) #spring stiffness
         self.rq = np.array([0, 0, -0.1, 0, 0, 0, 0]*2) #reference - q
 
         self.joint_err_w = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.3, 0.3]*2) #joint error weight

@@ -49,7 +49,8 @@ bodies:
 
   - name: tcp
     joint: {type: fixed, parent: link7, pos: [-0.05, 0, 0], euler: [180, 180, 0]}
-    inertial: {mass: 1.6, pos: [0.08, 0, 0], tensor: [sphere, 0.03]}
+    inertial: {mass: 0.1, pos: [0.08, 0, 0], tensor: [sphere, 0.01]}
+    #inertial: {mass: 1.6, pos: [0.08, 0, 0], tensor: [sphere, 0.03]}
     shapes: [{type: cylinder, euler: [0, 90, 0], param: [0.03, 0.01], rgba: [0.9, 0.4, 0.4, 1.0]}]
 
 
