@@ -45,8 +45,8 @@ if arg.x: #start with real H/W
     cdll.init(b'%d 1' %cmode) #control mode, hand-type
     env = tact.CEnv(cdll, n_y=kida.Controller.n_y + 2*gmod.Controller.n_y, n_u=kida.Controller.n_u + 2*gmod.Controller.n_u, backend='real', has_pd=arg.b)
 #elif arg.m:
-#    cdll = ctypes.CDLL(f'{tact.pkg_dir}/bin/mjenv.so')
-#    cdll.init('/home/ubuntu/uv1/fgx/mujoco/models/kida/mjmodel.xml'.encode(), 16)
+#    cdll = ctypes.CDLL('../tact/extras/mjenv.so')
+#    cdll.init('/home/ubuntu/uv1/fgx/mujoco/models/kida/mjmodel.xml'.encode(), None, 16)
 #    env = tact.CEnv(cdll, n_y=..., backend='mujoco')
 else: #start with tact simulator
     env = tact.Env('yml/kida', offset=[0, 0, 1.2, 0, 0, 0], render=not arg.l, redraw=16)
