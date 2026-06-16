@@ -1,1 +1,15 @@
-../../tact/envs/desk1.yml
+#abstract: test environment
+#date:
+
+materials:
+    mat1: {normal: [50000, 100], tangent: [20000,  50, 0.8], spin: [100, 1, 0.02], roll: [100, 1, 0.005], restitution: 0.0}
+    mat2: {normal: [10000, 100], tangent: [20000, 100, 0.8], spin: [100, 1, 0.02], roll: [100, 1, 0.005], restitution: 0.0}
+
+bodies:
+  - name: root
+    shapes: [{type: box, pos: [0.55, 0, 0.57], param: [0.25, 0.5, 0.015], contact: [1, mat1], rgba: [0.7, 0.7, 0.9, 1.0]}]
+
+  - name: obj1
+    joint: {type: free, parent: root, q0: [0.4, -0.1, 0.7, 0, 0, 0]}
+    inertial: {mass: 0.5, tensor: [sphere, 0.1]}
+    shapes: [{type: box, param: [0.05, 0.05, 0.05], contact: [1, mat2], rgba: [0.3, 0.3, 0.8, 1.0]}]

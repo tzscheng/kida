@@ -6,14 +6,16 @@ OUT_DIR="../../kida"
 # --include-data-files bundles libtact.so into the onefile binary at tact/bin/libtact.so,
 # which is where tact/_clib.py's first lookup ('<package_dir>/bin/libtact.so') resolves to
 # at runtime (nuitka rewrites __file__ to the extracted location).
-uv run python -m nuitka --onefile --output-filename=kida   --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/bin/libtact.so=tact/bin/libtact.so kida.run
-#uv run python -m nuitka --onefile --output-filename=single --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/bin/libtact.so=tact/bin/libtact.so single.run
+uv run python -m nuitka --onefile --output-filename=kida   --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/tact/bin/libtact.so=tact/bin/libtact.so kida.run
+uv run python -m nuitka --onefile --output-filename=single --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/tact/bin/libtact.so=tact/bin/libtact.so single.run
 #uv run python -m nuitka --onefile --output-filename=logger --output-dir="$OUT_DIR" --follow-imports --remove-output ../dev/vive/logger
 #uv run python -m nuitka --onefile --output-filename=player --output-dir="$OUT_DIR" --follow-imports --remove-output ../dev/vive/player.py
 
 #cp kida.run kida.py dg5.py "$OUT_DIR"
 #cp tact/sim.py tact/rbd.py tact/control.py tact/__init__.py tact/_clib.py "$OUT_DIR"/tact
 #cp -r tact/bin "$OUT_DIR"/tact
+
+#mkdir -p "$OUT_DIR"
 
 cp ./usrsample.py "$OUT_DIR"
 cp -rL yml "$OUT_DIR"
