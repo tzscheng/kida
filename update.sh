@@ -1,6 +1,6 @@
 #!/bin/bash
 
-OUT_DIR="../../kida"
+OUT_DIR="../../Desktop/kida"
 
 #to binalry
 # --include-data-files bundles libtact.so into the onefile binary at tact/bin/libtact.so,
@@ -17,7 +17,12 @@ uv run python -m nuitka --onefile --output-filename=single --output-dir="$OUT_DI
 
 #mkdir -p "$OUT_DIR"
 
+cp _/uv.lock "$OUT_DIR"
+cp _/pyproject.toml "$OUT_DIR"
+
+cp ./README.md "$OUT_DIR"
 cp ./usrsample.py "$OUT_DIR"
+
 cp -rL yml "$OUT_DIR"
 cp -rL eio "$OUT_DIR"
 

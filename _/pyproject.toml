@@ -1,0 +1,16 @@
+[project]
+name = "kida"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "diffusers>=0.37.1",
+    "h5py>=3.16.0",
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.4",
+    "pyyaml>=6.0.3",
+    "pyzmq>=27.1.0",
+    "zstandard>=0.25.0",
+    "opencv-python>=4.13",
+]
