@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run python
 # -*- mode: python -*-
-import sys, os, argparse, ctypes, numpy as np, zmq
+import sys, os, argparse, ctypes, atexit, numpy as np, zmq
 from collections import deque
 import tact, kida, dg5 as gmod
 
@@ -81,6 +81,17 @@ for c in getattr(env, 'cameras', []):
     s.bind('ipc:///dev/shm/%s' %c['name'])                   # local clients
     if c.get('port'): s.bind('tcp://0.0.0.0:%d' %c['port'])  # remote clients (LAN)
     socks[c['name']] = s
+
+def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
+    if getattr(close_zmq, 'closed', False): return
+    close_zmq.closed = True
+    for s in sockets + [pub, cmd]:
+        try: s.close(linger=0)
+        except Exception: pass
+    try: context.term()
+    except Exception: pass
+close_zmq.closed = False
+atexit.register(close_zmq)
 
 
 # Compose multi-controller output. Each returns the 5-tuple command

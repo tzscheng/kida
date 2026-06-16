@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run python
 # -*- mode: python -*-
-import sys, os, argparse, ctypes, numpy as np, zmq
+import sys, os, argparse, ctypes, atexit, numpy as np, zmq
 from collections import deque
 import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
 import tact, single
@@ -80,6 +80,17 @@ for c in getattr(env, 'cameras', []):
     if c.get('port'): s.bind('tcp://0.0.0.0:%d' %c['port'])  # remote clients (LAN)
     socks[c['name']] = s
 
+def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
+    if getattr(close_zmq, 'closed', False): return
+    close_zmq.closed = True
+    for s in sockets + [pub, cmd]:
+        try: s.close(linger=0)
+        except Exception: pass
+    try: context.term()
+    except Exception: pass
+close_zmq.closed = False
+atexit.register(close_zmq)
+
 
 # Compose multi-controller output. Each returns the 5-tuple command
 # (tau, q_ref, qd_ref, kp, kd) with each channel either an array or None.
@@ -143,5 +154,5 @@ while True:
     if socks and hasattr(env, 'camera_frames'):
         for name, buf in env.camera_frames():
             socks[name].send(buf)
-            
+
     cnt += 1
