@@ -40,10 +40,13 @@ class Controller:
         Kp = np.array([600, 600, 600, 10, 10, 10], dtype=float)
         Kd = np.array([10, 10, 10, 0.10, 0.10, 0.10], dtype=float)
         self.jtc = tact.JacobianTransposeController(self.m, {'tcp':'6d'}, Kp, Kd)
-        self.trj2 = tact.SE3WaypointSmoother(20, num_frames=1) #task space traj generator (SLERP)
+        self.task_Kp = Kp
+        self.task_Kd = Kd
+        self.trj2 = tact.MovingAverageWaypointSmoother(20) #task space traj generator
 
-        self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]) #spring stiffness
-        self.rq = np.array([0, 0, -0.1, 0, 0, 0, 0]) #reference - q
+        #self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]) #spring stiffness
+        self.sk = np.array([0, 0, 2.0, 0, 0, 0, 0]) #spring stiffness
+        self.rq = np.array([0, 0, -0.2, 0, 0, 0, 0]) #reference - q
         
         self.joint_err_w = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.3, 0.3]) #joint error weight
         self.task_err_w = np.array([1.0, 1.0, 1.0, 0.2, 0.2, 0.2]) #task error weight
@@ -85,6 +88,19 @@ class Controller:
         JJt = J @ J.T + (damping*damping) * np.eye(J.shape[0])
         return tau - J.T @ np.linalg.solve(JJt, J @ tau)
 
+    def _task_error(self, q, x_d):
+        Te = self.m.fkh(['tcp'], q)[0]
+        Td = tact.xyzeuler_to_homogeneous(x_d)
+        e_t = Td[:3, 3] - Te[:3, 3]
+        R1, R2 = Td[:3, :3], Te[:3, :3]
+        e_o = 0.5*(np.cross(R2[:, 0], R1[:, 0]) + np.cross(R2[:, 1], R1[:, 1]) + np.cross(R2[:, 2], R1[:, 2]))
+        return np.r_[e_t, e_o]
+
+    def _task_tau(self, x_d, q, qd, J):
+        e = self._task_error(q, x_d)
+        x_dot = J @ qd
+        return J.T @ (self.task_Kp*e - self.task_Kd*x_dot)
+
     def one_step_forward(self):
         if self.s != self.next_s: self.shift(self.next_s)
         else: self.t += 1
@@ -102,11 +118,8 @@ class Controller:
         elif w[0] == 'task':
             if len(w[1:]) == 6:
                 self.v = np.array(w[1:], dtype=float)
-                # Orientation clip widened: roll/yaw ±3.10 (≈±177°, wrap-safe via
-                # SE3 smoother's short-arc), pitch ±1.48 (≈±85°, 5° margin to gimbal
-                # lock at ±π/2). See CLAUDE.md "rate" / SE3 notes. Position unchanged.
-                lo = [ 0.0, -0.5, -0.6, -3.10, -1.48, -3.10]
-                hi = [ 0.6,  0.5,  0.0,  3.10,  1.48,  3.10]
+                lo = [ 0.0, -0.5, -0.6, -1.57, -1.30, -1.57]
+                hi = [ 0.6,  0.5,  0.0,  1.57,  1.30,  1.57]
                 self.v = np.clip(self.v, lo, hi)
                 self.shift(w[0])
 
@@ -135,7 +148,7 @@ class Controller:
 
         elif self.s == 'task':
             if self.t == 0:
-                e_eff = np.linalg.norm(self.task_err_w*(self.m.error({'tcp':'6d'}, q, self.v))) #effective task error
+                e_eff = np.linalg.norm(self.task_err_w*self._task_error(q, self.v)) #effective task error
                 duration = int(4.0*self.rate*e_eff) + 1
                 self.trj2.target(self.v.reshape((1, 6)), [duration], x, self.T)
             if self.has_pd:
@@ -143,7 +156,7 @@ class Controller:
                 q_ref = self.m.ik({'tcp':'6d'}, q, self.trj2.generate(), tolerance=self.ik_tolerance)
             else:
                 J = self.m.jacob({'tcp':'6d'}, q)
-                tau = self.jtc.update(self.trj2.generate(), q, qd, J=J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
+                tau = self._task_tau(self.trj2.generate(), q, qd, J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
 
         elif self.s == 'init':
             if self.t == 0: self.trj1.target(np.array([self.init1, self.init2, self.home]), [2*self.rate, self.rate, self.rate], q, self.T)
@@ -173,7 +186,7 @@ class Controller:
                 q_ref = self.m.ik({'tcp':'6d'}, q, self.trj2.generate(), tolerance=self.ik_tolerance)
             else:
                 J = self.m.jacob({'tcp':'6d'}, q)
-                tau = self.jtc.update(self.trj2.generate(), q, qd, J=J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
+                tau = self._task_tau(self.trj2.generate(), q, qd, J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
 
         elif self.s == 'joint-loop':
             if self.t % (self.rate*8) == 0: self.trj1.target(np.array([self.q_d1, self.q_d1, self.q_d2, self.q_d2, self.q_d3, self.q_d3, self.q_d4, self.q_d4]), [self.rate, self.rate, self.rate, self.rate, self.rate, self.rate, self.rate, self.rate], q, self.T)
@@ -189,7 +202,7 @@ class Controller:
                 q_ref = self.m.ik({'tcp':'6d'}, q, self.trj2.generate(), tolerance=self.ik_tolerance)
             else:
                 J = self.m.jacob({'tcp':'6d'}, q)
-                tau = self.jtc.update(self.trj2.generate(), q, qd, J=J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
+                tau = self._task_tau(self.trj2.generate(), q, qd, J) + self.m.gravity(q) + self._null_space_postural(q, J=J)
 
         elif self.s == 'gcomp':
             # gcomp only reachable when has_pd=False (gated in msgproc)
