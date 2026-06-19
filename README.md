@@ -2,14 +2,10 @@
 
 KIDA는 14-DOF dual-arm manipulator와 양손 gripper를 시뮬레이션 또는 실제 하드웨어에서 구동하는 실행 패키지입니다. `kida`/`single` 실행 파일이 ZeroMQ command를 받고, proprioception과 camera frame을 publish합니다.
 
-이 README는 배포 패키지를 압축 해제한 뒤 실행하는 방법을 기준으로 합니다.
-
 ## 설치 및 실행
 
-배포받은 PC에서 압축을 풉니다.
-
 ```bash
-tar -xzf kida.tar.gz
+tar -xzf kida-yyyy-mm-dd.tar.gz
 cd kida
 ```
 
@@ -49,6 +45,9 @@ uv run python usrsample.py
 | `zmqmsg` | command channel로 문자열을 보내는 CLI 도구 |
 | `msender` | RealSense camera frame 송신기 |
 | `mreceiver` | camera/message 수신 테스트 도구 |
+| `steamvr.sh` | SteamVR 실행/환경 준비 스크립트 |
+| `vmaster` | Vive tracker master process |
+| `logger` / `player` | Vive tracker log 기록/재생 도구 |
 | `up` / `down` | CAN interface 활성화/비활성화 스크립트 |
 
 ## KIDA 실행 옵션
@@ -102,6 +101,8 @@ DG5 hand를 사용할 때는 `kida -x` 또는 `single -x`가 `eio/eio-dg5`를 �
 ./msender
 ```
 
+Vive tracker나 Manus glove를 함께 쓰는 배포에는 `steamvr.sh`, `vmaster`, `logger`, `player`, `calib/`가 포함됩니다. 필요한 경우 해당 센서 프로세스를 별도 터미널에서 실행합니다.
+
 종료 후 CAN interface를 내립니다.
 
 ```bash
@@ -122,6 +123,8 @@ DG5 hand를 사용할 때는 `kida -x` 또는 `single -x`가 `eio/eio-dg5`를 �
 | rightcam | `ipc:///dev/shm/rightcam` | `tcp://<robot-ip>:5559` | runner/camera -> client | JPEG image |
 
 `usrsample.py`에서 `SERVER = None`이면 로컬 IPC를 사용합니다. 원격 PC에서 접속할 때는 `SERVER = '<robot-ip>'`로 바꿉니다.
+
+`single` 실행 시 wrist camera는 `ipc:///dev/shm/wristcam`으로 publish되고, YAML port 설정상 TCP `5558`을 사용합니다.
 
 ## Command 형식
 
@@ -191,3 +194,8 @@ Dual-arm `kida`의 proprioception은 총 162개 `float32`입니다.
 | `eio/eio-single.so` | 실제 single-arm backend shared library |
 | `eio/eio-dg5` | DG5 hand hardware bridge |
 | `pyproject.toml`, `uv.lock` | Python client 예제 실행용 uv 환경 |
+| `msender`, `mreceiver` | RealSense camera stream 송수신 도구 |
+| `steamvr.sh`, `vmaster`, `logger`, `player` | Vive tracker 관련 도구 |
+| `calib/` | Manus glove calibration data |
+| `up`, `down` | CAN interface helper |
+| `zmqmsg` | ZMQ command helper |
