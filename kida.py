@@ -37,7 +37,7 @@ class Controller:
         # policy, not plant — they moved out of the YAML).
         self.kp = kp
         self.kd = kd
-        self.trj1 = tact.MovingAverageWaypointSmoother(20) #joint space trajectory
+        self.trj1 = tact.MovingAverageWaypointSmoother(10) #joint space trajectory
 
         Kp = np.array([600, 600, 600, 12, 12, 12]*2, dtype=float)
         Kd = np.array([10, 10, 10, 0.12, 0.12, 0.12]*2, dtype=float)
@@ -46,7 +46,7 @@ class Controller:
         self.jtc = tact.JacobianTransposeController(self.m, {'tcp1':'6d', 'tcp2':'6d'}, Kp, Kd)
         self.task_Kp = Kp
         self.task_Kd = Kd
-        self.trj2 = tact.MovingAverageWaypointSmoother(20) #task space trajectory
+        self.trj2 = tact.MovingAverageWaypointSmoother(5) #task space trajectory
 
         self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]*2) #spring stiffness
         self.rq = np.array([0, 0, -0.2, 0, 0, 0, 0]*2) #reference - q
@@ -147,7 +147,7 @@ class Controller:
         if self.s == 'joint':
             if self.t == 0:
                 e_eff = np.linalg.norm(self.joint_err_w*(self.v - q)) #effective joint error
-                duration = int(2.0*self.rate*e_eff) + 1
+                duration = int(4.0*self.rate*e_eff) + 1
                 self.trj1.target(self.v.reshape((1, 14)), [duration], q, self.T)
             if self.has_pd:
                 tau = self.m.gravity(q)
