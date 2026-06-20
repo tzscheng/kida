@@ -12,4 +12,4 @@ bodies:
   - name: obj1
     joint: {type: free, parent: root, q0: [0.4, -0.1, 0.7, 0, 0, 0]}
     inertial: {mass: 0.5, tensor: [sphere, 0.1]}
-    shapes: [{type: box, param: [0.05, 0.05, 0.05], contact: [1, mat2], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    shapes: [{type: box, param: [0.04, 0.04, 0.04], contact: [1, mat2], rgba: [0.3, 0.3, 0.8, 1.0]}]

@@ -65,15 +65,13 @@ ppub.setsockopt(zmq.CONFLATE, 1)
 ppub.bind('ipc:///dev/shm/proprio')       # local clients
 ppub.bind('tcp://0.0.0.0:5556')           # remote clients (LAN)
 
-# Camera publish setup. Cameras are declared in YAML (`cameras:` block, exposed as
-# env.cameras), bound to one ZMQ PUB each — local IPC plus (when the camera declares a
-# `port`) a LAN TCP socket. Rate-gating + type dispatch live in env.camera_frames();
+# Sensor publish setup. Cameras/tactiles are declared in YAML and exposed as
+# env.cameras/env.tactiles. Rate-gating + type dispatch live in env.*_frames();
 # here we only own the sockets. Capability-based (docs/backend-interface.md):
-# CEnv (real) has NO cameras attr (hasattr probes False) → nothing bound
-# (use rs2/msender).
+# CEnv (real) has NO sim sensor attrs (hasattr probes False) → nothing bound.
 proprio_update_cycle = 2 if arg.x else 33  # real HW ~120Hz vs sim ~30Hz
 socks = {}
-for c in getattr(env, 'cameras', []):
+for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'tactiles', [])):
     s = ctx.socket(zmq.PUB)
     s.setsockopt(zmq.CONFLATE, 1)
     s.bind('ipc:///dev/shm/%s' %c['name'])                   # local clients
@@ -149,10 +147,14 @@ while True:
         proprio = y.astype(np.float32).tobytes()
         ppub.send(proprio)
 
-    #update camera feedback — capability-based: socket table is empty when the
-    #backend declared no cameras (CEnv); rate-gating + dispatch in camera_frames()
-    if socks and hasattr(env, 'camera_frames'):
-        for name, buf in env.camera_frames():
-            socks[name].send(buf)
+    #update camera/tactile feedback — capability-based: socket table is empty when
+    #the backend declared no sensors (CEnv); rate-gating + dispatch in env.*_frames()
+    if socks:
+        if hasattr(env, 'camera_frames'):
+            for name, buf in env.camera_frames():
+                socks[name].send(buf)
+        if hasattr(env, 'tactile_frames'):
+            for name, buf in env.tactile_frames():
+                socks[name].send(buf)
 
     cnt += 1
