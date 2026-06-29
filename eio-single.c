@@ -125,7 +125,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
 	    const double kd_mot =  0.5;    // Nm·s/rad (manual range 0..5)
 	    const double dt     =  0.00435; // s, step period for qd finite-difference (~230 Hz)
 	    double q_act, qd_act;
-	    ret = can_myact_mot(fd, i+1,
+	    ret = can_myact_mit(fd, i+1,
 	                        dir[i] * tau[i], dir[i] * q_ref[i], dir[i] * qd_ref[i],
 	                        kp_mot, kd_mot, dt,
 	                        &q_act, &qd_act);
