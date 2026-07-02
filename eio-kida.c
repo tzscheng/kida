@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "sockcan.h"
+#include "myactcan.h"
 
 char buf[4096];
 pthread_t th[4];

@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "sockcan.h"
+#include "myactcan.h"
 
 //#define DT 0.00435 //230Hz
 
