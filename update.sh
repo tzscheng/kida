@@ -11,8 +11,8 @@ mkdir -p "$OUT_DIR"
 uv run python -m nuitka --onefile --output-filename=kida   --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/native/lib/libtact.so=tact/bin/libtact.so kida.run
 uv run python -m nuitka --onefile --output-filename=single --output-dir="$OUT_DIR" --follow-imports --remove-output --include-data-files=../tact/native/lib/libtact.so=tact/bin/libtact.so single.run
 
-cp _/uv.lock "$OUT_DIR"
-cp _/pyproject.toml "$OUT_DIR"
+cp _uv_/uv.lock "$OUT_DIR"
+cp _uv_/pyproject.toml "$OUT_DIR"
 
 cp ./README.md "$OUT_DIR"
 cp ./usrsample.py "$OUT_DIR"
