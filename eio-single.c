@@ -49,7 +49,7 @@ void init(const char* args) {
     if(ch == 0) memcpy(dir, dir0, sizeof(double)*7);
     else memcpy(dir, dir1, sizeof(double)*7);
     
-    fd = can_init(ch);
+    fd = myact_can_init(ch);
     if (fd < 0) {
 	fprintf(stderr, "CAN initializing error\n");
 	exit(0);
@@ -111,11 +111,11 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
     for(int i = 0; i < 7; i++){
 	if (cmode == 0){
 	    target[i] = dir[i] * 1.0/kt[i] * tau[i];  //torque to current (Nm -> A)
-	    ret = can_myact_cur(fd, i+1, target[i], &pos, &vel, &cur);
+	    ret = myact_can_cur(fd, i+1, target[i], &pos, &vel, &cur);
 	}
 	else if (cmode == 1){
 	    target[i] = dir[i] * (180.0 * q_ref[i]/M_PI);  //rad -> deg
-	    ret = can_myact_pos(fd, i+1, 500, target[i], &pos, &vel, &cur);
+	    ret = myact_can_pos(fd, i+1, 500, target[i], &pos, &vel, &cur);
 	}
 	else if (cmode == 2){
 	    // motion mode: motor-side PD on q_ref/qd_ref + tau feedforward (Nm direct, no kt).
@@ -125,7 +125,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
 	    const double kd_mot =  0.5;    // Nm·s/rad (manual range 0..5)
 	    const double dt     =  0.00435; // s, step period for qd finite-difference (~230 Hz)
 	    double q_act, qd_act;
-	    ret = can_myact_mit(fd, i+1,
+	    ret = myact_can_mit(fd, i+1,
 	                        dir[i] * tau[i], dir[i] * q_ref[i], dir[i] * qd_ref[i],
 	                        kp_mot, kd_mot, dt,
 	                        &q_act, &qd_act);
@@ -189,7 +189,7 @@ void finish(){
     int ret;
     
     for(i = 0; i < 7; i++){
-	ret = can_myact_stop(fd, i+1);
+	ret = myact_can_stop(fd, i+1);
     }
 
     /*if(ctype == 1){
@@ -205,7 +205,7 @@ void finish(){
     }
 
     usleep(10000);
-    can_release(fd);
+    myact_can_release(fd);
     usleep(10000);
     printf("ret=%d shutdown\n", ret);    
 }
@@ -220,7 +220,7 @@ void step2(double* u, double* y){
     
     for(i = 0; i < 7; i++){
 	target[i] = dir[i] * (180.0 * u[i]/M_PI);  //rad -> deg
-	ret = can_myact_pos(fd, i+1, 500, target[i], &pos, &vel);
+	ret = myact_can_pos(fd, i+1, 500, target[i], &pos, &vel);
 	
 	if(ret < 0) {
 	    fprintf(stderr, "error\n");

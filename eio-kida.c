@@ -50,7 +50,7 @@ static void* arm_task(void *arg){
     ret = pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
     if (ret != 0) { perror("pthread_setaffinity_np"); exit(0); }
     
-    fd = can_init(tid);
+    fd = myact_can_init(tid);
     if (fd < 0) { fprintf(stderr, "CAN initializing error\n"); exit(0); }
 
     printf("thread[%d] start\n", tid);
@@ -61,13 +61,13 @@ static void* arm_task(void *arg){
 	    //torque control mode
 	    if(cmode == 0){
 		target[i] = dir[tid][i] * 1.0/kt[tid][i] * u_tau[tid][i];  //torque to current (Nm -> A)
-		ret = can_myact_cur(fd, i+1, target[i], &pos, &vel, &cur);
+		ret = myact_can_cur(fd, i+1, target[i], &pos, &vel, &cur);
 	    }
 
 	    //built-in position control mode
 	    else if (cmode == 1){
 		target[i] = dir[tid][i] * (180.0 * u_q[tid][i]/M_PI);  //rad -> deg
-		ret = can_myact_pos(fd, i+1, 500, target[i], &pos, &vel, &cur);
+		ret = myact_can_pos(fd, i+1, 500, target[i], &pos, &vel, &cur);
 	    }
 
 	    //motion mode: motor-side PD on q_ref/qd_ref + tau feedforward (Nm direct, no kt).
@@ -78,7 +78,7 @@ static void* arm_task(void *arg){
 		const double kd_mot =  0.5;    // Nm·s/rad (manual range 0..5)
 		const double dt     =  0.00435; // s, step period for qd finite-difference (~230 Hz)
 		double q_act, qd_act;
-		ret = can_myact_mit(fd, i+1,
+		ret = myact_can_mit(fd, i+1,
 		                    dir[tid][i] * u_tau[tid][i],
 		                    dir[tid][i] * u_q  [tid][i],
 		                    dir[tid][i] * u_qd [tid][i],
@@ -106,14 +106,14 @@ static void* arm_task(void *arg){
     }
 
     for(int i = 0; i < 7; i++){
-	ret = can_myact_stop(fd, i+1);
+	ret = myact_can_stop(fd, i+1);
 	if(ret < 0) {
 	    fprintf(stderr, "error2\n");
 	}
     }
     
     usleep(10000);
-    can_release(fd);
+    myact_can_release(fd);
     printf("can-thread[%d] finished\n", tid);
     pthread_exit(0);
 }
