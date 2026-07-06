@@ -19,7 +19,7 @@ This project provides:
 
 ```bash
 ./build.sh                                  # gcc → eio/eio-kida.so and eio/eio-single.so
-                                            # needs sockcan.h from ../dev/can
+                                            # needs myactcan.h from ../dev/myact
 ```
 
 Dual-arm:
