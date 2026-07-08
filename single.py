@@ -5,10 +5,10 @@ class Controller:
     n_u = 7 #number of control input
 
     def __init__(self, env, ymlname, prefix='', rate=None, verbose=False):
-        # TODO when has_pd=True is used (single.run -b): wrap the self.m.ik(...) calls
+        # TODO when has_pd=True is used (single-run -b): wrap the self.m.ik(...) calls
         # in update()'s task/home-task/task-loop branches with try/except RuntimeError
         # → fall back to self.q_ref_old. IK can fail at workspace boundary / near
-        # singularities and currently crashes single.run. Skipped while we stay on
+        # singularities and currently crashes single-run. Skipped while we stay on
         # has_pd=False (cmode=0, JTC path) where IK is only called at __init__.
         self.has_pd = env.has_pd
         self.verbose = verbose
@@ -17,7 +17,7 @@ class Controller:
         self.env = env
         self.prefix = prefix
 
-        # rate = control loop ticks/sec; runner passes this (single.run → 240).
+        # rate = control loop ticks/sec; runner passes this (single-run → 240).
         # When None (e.g. start with CEnv-real where dt isn't exposed), fall
         # back to the kida HW pacing (240 Hz, eio usleep(3000)).
         self.rate = rate if rate is not None else 240

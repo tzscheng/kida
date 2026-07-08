@@ -79,7 +79,7 @@ def main():
         "--names",
         nargs="+",
         default=DEFAULT_NAMES,
-        help="tactile IPC names to subscribe; defaults cover direct, single.run, and kida.run left hand",
+        help="tactile IPC names to subscribe; defaults cover direct, single-run, and kida-run left hand",
     )
     ap.add_argument("--shape", default="4x4", help="array shape, e.g. 4x4")
     ap.add_argument("--hz", type=float, default=20.0, help="terminal refresh rate")

@@ -1,6 +1,6 @@
 # KIDA
 
-KIDA는 14-DOF dual-arm manipulator와 양손 gripper를 시뮬레이션 또는 실제 하드웨어에서 구동하는 프로젝트입니다. `kida.run`/`single.run` 실행기가 ZeroMQ command를 받고, proprioception과 camera frame을 publish합니다.
+KIDA는 14-DOF dual-arm manipulator와 양손 gripper를 시뮬레이션 또는 실제 하드웨어에서 구동하는 프로젝트입니다. `kida-run`/`single-run` 실행기가 ZeroMQ command를 받고, proprioception과 camera frame을 publish합니다.
 
 ## 설치 및 빌드
 
@@ -22,7 +22,7 @@ uv sync          # .venv 생성 (numpy, zmq, opencv, pytact(PyPI) 등)
 시뮬레이터 실행:
 
 ```bash
-./kida.run
+./kida-run
 ```
 
 다른 터미널에서 예제 client 실행:
@@ -44,21 +44,21 @@ uv run python usrsample.py
 Dual-arm:
 
 ```bash
-./kida.run                 # DG5 hand 시뮬레이터
-./kida.run -g 0            # H9 hand 시뮬레이터
-./kida.run -g 1 -l         # DG5 hand headless 시뮬레이터
-./kida.run -g 1 -x         # 실제 KIDA + DG5 hand
-./kida.run -g 1 -x -b      # 실제 KIDA, actuator built-in position controller 사용
-./kida.run -g 1 -v         # TCP pose verbose 출력
+./kida-run                 # DG5 hand 시뮬레이터
+./kida-run -g 0            # H9 hand 시뮬레이터
+./kida-run -g 1 -l         # DG5 hand headless 시뮬레이터
+./kida-run -g 1 -x         # 실제 KIDA + DG5 hand
+./kida-run -g 1 -x -b      # 실제 KIDA, actuator built-in position controller 사용
+./kida-run -g 1 -v         # TCP pose verbose 출력
 ```
 
 Single-arm:
 
 ```bash
-./single.run -t 0 -g 1     # left arm + DG5 hand 시뮬레이터
-./single.run -t 1 -g 1     # right arm + DG5 hand 시뮬레이터
-./single.run -t 0 -g 0 -x  # left arm + H9 hand 실제 하드웨어
-./single.run -t 1 -g 1 -x  # right arm + DG5 hand 실제 하드웨어
+./single-run -t 0 -g 1     # left arm + DG5 hand 시뮬레이터
+./single-run -t 1 -g 1     # right arm + DG5 hand 시뮬레이터
+./single-run -t 0 -g 0 -x  # left arm + H9 hand 실제 하드웨어
+./single-run -t 1 -g 1 -x  # right arm + DG5 hand 실제 하드웨어
 ```
 
 공통 옵션:
@@ -72,8 +72,8 @@ Single-arm:
 | `-l` | 시뮬레이터 rendering window 없이 실행 |
 | `-v` | controller debug/pose 출력 |
 | `-d <file>` | `<step_count> <command>` 형식 dispatch file 실행 |
-| `-t 0` | `single.run`에서 left arm 선택 |
-| `-t 1` | `single.run`에서 right arm 선택 |
+| `-t 0` | `single-run`에서 left arm 선택 |
+| `-t 1` | `single-run`에서 right arm 선택 |
 
 ## 실제 하드웨어 준비
 
@@ -84,7 +84,7 @@ CAN interface를 먼저 올립니다 (helper는 kida 로컬 `can-up`). 장치명
 ./can-up 1
 ```
 
-DG5 hand를 사용할 때는 `kida.run -x` 또는 `single.run -x`가 `eio/eio-dg5`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
+DG5 hand를 사용할 때는 `kida-run -x` 또는 `single-run -x`가 `eio/eio-dg5`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
 
 ```bash
 rs2/msender
@@ -96,7 +96,7 @@ Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr.sh`, `vive/vmaste
 
 ## ZeroMQ 통신
 
-`kida.run`과 `single.run`은 같은 endpoint를 사용합니다. 같은 PC에서는 IPC, 다른 PC에서는 TCP로 접속합니다.
+`kida-run`과 `single-run`은 같은 endpoint를 사용합니다. 같은 PC에서는 IPC, 다른 PC에서는 TCP로 접속합니다.
 
 | 채널 | 로컬 endpoint | TCP endpoint | 방향 | 내용 |
 |---|---|---|---|---|
@@ -108,7 +108,7 @@ Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr.sh`, `vive/vmaste
 
 `usrsample.py`에서 `SERVER = None`이면 로컬 IPC를 사용합니다. 원격 PC에서 접속할 때는 `SERVER = '<robot-ip>'`로 바꿉니다.
 
-`single.run` 실행 시 wrist camera는 `ipc:///dev/shm/wristcam`으로 publish되고, YAML port 설정상 TCP `5558`을 사용합니다.
+`single-run` 실행 시 wrist camera는 `ipc:///dev/shm/wristcam`으로 publish되고, YAML port 설정상 TCP `5558`을 사용합니다.
 
 ## Command 형식
 
@@ -148,7 +148,7 @@ quit
 
 ## Proprioception layout
 
-Dual-arm `kida.run`의 proprioception은 총 162개 `float32`입니다.
+Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 
 | 구간 | 개수 | 내용 |
 |---|---:|---|
@@ -168,8 +168,8 @@ Dual-arm `kida.run`의 proprioception은 총 162개 `float32`입니다.
 
 | 경로 | 설명 |
 |---|---|
-| `kida.run`, `kida.py` | Dual-arm 실행기와 controller |
-| `single.run`, `single.py` | 좌/우 한쪽 arm + hand 실행기와 controller |
+| `kida-run`, `kida.py` | Dual-arm 실행기와 controller |
+| `single-run`, `single.py` | 좌/우 한쪽 arm + hand 실행기와 controller |
 | `dg5.py` | DG5 hand gripper agent |
 | `h9.py` | H9 hand agent (`../fg/h9/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
