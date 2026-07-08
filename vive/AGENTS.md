@@ -4,7 +4,8 @@ This file provides guidance to Codex and Claude Code when working with code in t
 
 ## Build
 
-No Make/CMake. The `vive` section of the repo-root `../build.sh` builds:
+No Make/CMake. This dir's own `build.sh` is standalone — the top-level kida
+`build.sh` does **not** invoke it. It builds:
 
 - `vive-udp` from `vive-udp.cpp`
 - `vmaster` from `vmaster.cpp`
@@ -12,7 +13,7 @@ No Make/CMake. The `vive` section of the repo-root `../build.sh` builds:
 (`../../fgx/manus/pymanus.cpython-*.so`, used by `vmaster.py`, is NOT built here — it is built by fg's `dev/manus` build from `pymanus.cpp`.)
 
 ```bash
-(cd .. && ./build.sh)   # vive section of the merged kida build.sh
+./build.sh              # build vive tools here directly (runnable from anywhere)
 ```
 
 OpenVR is resolved through `OPENVR_LIB_DIR` (default SteamVR path). Manus SDK is

@@ -2,27 +2,20 @@
 
 KIDA는 14-DOF dual-arm manipulator와 양손 gripper를 시뮬레이션 또는 실제 하드웨어에서 구동하는 프로젝트입니다. `kida.run`/`single.run` 실행기가 ZeroMQ command를 받고, proprioception과 camera frame을 publish합니다.
 
-이 repo는 독립 프로젝트로, sibling 저장소·디렉터리에 의존합니다:
-
-| 경로 | 용도 |
-|---|---|
-| `../tact` | 시뮬레이션/동역학 toolkit. 이 repo의 uv 환경이 editable `pytact`로 소비 |
-| `../fg` | fg monorepo. 빌드 헤더(`dev/myact`, `dev/manus`)와 `zmqmsg`, CAN helper(`dev/can/up`, `down`) 사용. `h9.py`·`extra/start`·`yml/h9-*.yml`·`vive/calib`는 fg 원본의 로컬 복사본 (원본 변경 시 재복사 필요) |
-| `../fgx/manus` | ManusSDK (vive teleop 빌드에 필요) |
-
 ## 설치 및 빌드
 
+clone한 repo 루트에서 실행합니다.
+
 ```bash
-cd /home/ubuntu/kida
-uv sync          # .venv 생성 (numpy, zmq, opencv, editable pytact 등)
-./build.sh       # eio/ hardware bridge + rs2/ camera 도구 + vive/ teleop 도구
+uv sync          # .venv 생성 (numpy, zmq, opencv, pytact(PyPI) 등)
+./build.sh       # eio/ hardware bridge (rs2/·vive/는 각 폴더에서 별도 빌드)
 ```
 
-`build.sh`는 세 섹션으로 구성됩니다:
+루트 `build.sh`는 **eio만** 빌드합니다. **rs2**·**vive**는 각 폴더의 별도 `build.sh`로 **따로** 빌드합니다 (루트 `build.sh`는 이들을 호출하지 않음):
 
-- **eio** — `eio-kida.c`/`eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5`는 DGSDK가 설치된 머신에서만 재빌드됩니다.
-- **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`)
-- **vive** — Vive tracker + Manus teleop (`vive/vive-udp`, `vive/vmaster`; ManusSDK·SteamVR 필요)
+- **eio** — `eio-kida.c`/`eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5`는 DGSDK가 설치된 머신에서만 재빌드됩니다. (루트 `build.sh`)
+- **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`). → `cd rs2 && ./build.sh`
+- **vive** — Vive tracker + Manus teleop (`vive/vive-udp`, `vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
 
 ## 실행
 
@@ -38,12 +31,12 @@ uv sync          # .venv 생성 (numpy, zmq, opencv, editable pytact 등)
 uv run python usrsample.py
 ```
 
-명령을 직접 보낼 때 (`zmqmsg`는 fg repo에 있음):
+명령을 직접 보낼 때 (`zmqmsg`는 kida 로컬 복사본):
 
 ```bash
-../fg/zmqmsg init, home, home
-../fg/zmqmsg rest
-../fg/zmqmsg quit
+./zmqmsg init, home, home
+./zmqmsg rest
+./zmqmsg quit
 ```
 
 ## 실행 옵션
@@ -84,11 +77,11 @@ Single-arm:
 
 ## 실제 하드웨어 준비
 
-CAN interface를 먼저 올립니다 (helper는 fg repo에 있음). 장치명은 환경에 맞게 선택합니다.
+CAN interface를 먼저 올립니다 (helper는 kida 로컬 `can-up`). 장치명은 환경에 맞게 선택합니다.
 
 ```bash
-../fg/dev/can/up 0
-../fg/dev/can/up 1
+./can-up 0
+./can-up 1
 ```
 
 DG5 hand를 사용할 때는 `kida.run -x` 또는 `single.run -x`가 `eio/eio-dg5`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
@@ -99,12 +92,7 @@ rs2/msender
 
 Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr.sh`, `vive/vmaster`, `vive/logger`, `vive/player`, `vive/calib/`을 사용합니다. 필요한 경우 해당 센서 프로세스를 별도 터미널에서 실행합니다.
 
-종료 후 CAN interface를 내립니다.
-
-```bash
-../fg/dev/can/down 0
-../fg/dev/can/down 1
-```
+종료 후 CAN interface를 내릴 때는 `sudo ip link set can<N> down`을 사용합니다.
 
 ## ZeroMQ 통신
 
@@ -185,7 +173,7 @@ Dual-arm `kida.run`의 proprioception은 총 162개 `float32`입니다.
 | `dg5.py` | DG5 hand gripper agent |
 | `h9.py` | H9 hand agent (`../fg/h9/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
-| `extra/` | 임시/실험용 도구 모음 (내용은 수시로 바뀜) |
+| `etc/` | 임시/실험용 도구 모음 (내용은 수시로 바뀜) |
 | `yml/kida.yml` | Dual-arm robot model |
 | `yml/kida-left.yml`, `yml/kida-right.yml` | 좌/우 single-arm model |
 | `yml/h9-left.yml`, `yml/h9-right.yml` | H9 hand model (`../fg/h9/yml/` 복사본) |
@@ -196,5 +184,5 @@ Dual-arm `kida.run`의 proprioception은 총 162개 `float32`입니다.
 | `eio/eio-dg5` | DG5 hand hardware bridge |
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
 | `vive/` | Vive tracker + Manus teleop 도구 (`vive-udp`, `vmaster`, `logger`, `player`, `steamvr.sh`, `calib/`) |
-| `build.sh` | eio/rs2/vive 통합 빌드 스크립트 |
-| `pyproject.toml`, `uv.lock` | uv 환경 (editable `pytact` 포함) |
+| `build.sh` | eio 빌드 스크립트 (rs2/·vive/는 각 폴더의 `build.sh`에서 별도 빌드) |
+| `pyproject.toml`, `uv.lock` | uv 환경 (`pytact` PyPI 패키지 포함) |

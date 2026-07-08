@@ -68,7 +68,8 @@ Calibration files live in the local `calib/` copy (originals in `../../fg/dev/ma
 glove IDs are known, then uploads calibration once. `-n` skips this.
 
 `vmaster.py` uses `../../fgx/manus/pymanus` (built by fg's `dev/manus`), which
-mirrors the Manus section of `vmaster.cpp` and reuses `../../fg/dev/manus/retarget.h`.
+mirrors the Manus section of `vmaster.cpp` and reuses the local `retarget.h`
+(vendored from fg `dev/manus`).
 
 ## ncurses UI
 

@@ -45,7 +45,9 @@ if arg.x: #start with real H/W
     cdll.init(b'%d 1' %cmode) #control mode, hand-type
     env = tact.CEnv(cdll, n_y=kida.Controller.n_y + 2*gmod.Controller.n_y, n_u=kida.Controller.n_u + 2*gmod.Controller.n_u, backend='real', has_pd=arg.b)
 #elif arg.m:
-#    cdll = ctypes.CDLL('../tact/extras/mjenv.so')
+#    # mjenv.so (MuJoCo backend) is not in the pytact wheel; provide a local
+#    # build (extras/mjenv.so, built from tact's mjenv.cpp) before enabling -m.
+#    cdll = ctypes.CDLL('extras/mjenv.so')
 #    cdll.init('/home/ubuntu/uv1/fgx/mujoco/models/kida/mjmodel.xml'.encode(), None, 16)
 #    env = tact.CEnv(cdll, n_y=..., backend='mujoco')
 else: #start with tact simulator

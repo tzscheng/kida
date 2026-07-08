@@ -4,10 +4,12 @@ This file provides guidance to Codex and Claude Code when working with code in t
 
 ## Build
 
-There is no Make/CMake. The `rs2` section of the repo-root `../build.sh` holds the canonical g++ invocations:
+There is no Make/CMake. The canonical g++ invocations live in this dir's own
+`build.sh`. It is standalone — the top-level kida `build.sh` does **not** invoke
+it; build rs2 tools here directly:
 
 ```bash
-(cd .. && ./build.sh)   # rs2 section of the merged kida build.sh
+./build.sh              # build rs2 tools (runnable from anywhere)
 ```
 
 Active outputs are `mreceiver`, `msender`, and `videorec`. Required system libs:

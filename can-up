@@ -1,0 +1,7 @@
+#!/bin/bash
+#sudo ip link set can$1 up type can bitrate 1000000
+
+sudo ip link set can$1 type can bitrate 1000000
+#sudo ip link set can$1 type can bitrate 1000000 sample-point 0.800 dbitrate 1000000 dsample-point 0.800 sjw 2 dsjw 2 fd
+#sudo ip link set can$1 type can bitrate 1000000 phase-seg1 14 phase-seg2 2 sjw 1
+sudo ip link set can$1 up

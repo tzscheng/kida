@@ -13,14 +13,16 @@ dependencies = [
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
     "opencv-python>=4.13",
-    "pytact",
+    "pytact>=0.1.0a1",
     "pyyaml>=6.0.3",
     "pyzmq>=27.1.0",
     "zstandard>=0.25.0",
 ]
 
-[tool.uv.sources]
-pytact = { path = "../tact", editable = true }
+# pytact is consumed from PyPI (https://pypi.org/project/pytact/), NOT from the
+# local ../pytact clone. There is deliberately no [tool.uv.sources] override, so
+# local edits to ../pytact never leak into this workspace — bump the version pin
+# above and `uv sync` to pick up a new release.
 
 [tool.uv]
 package = false

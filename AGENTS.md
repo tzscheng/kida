@@ -4,7 +4,7 @@ This file provides guidance to Codex and Claude Code when working with code in t
 
 ## What this is
 
-`kida` is a control project for a 14-DOF dual-arm manipulator (two 7-DOF arms sharing a torso `root`). It lives at `/home/ubuntu/kida` as an independent repo, but it is not a standalone framework — it sits on top of the sibling `tact` toolkit (`../tact`, its own repo, consumed as an editable `pytact` dependency via this repo's `pyproject.toml`) for kinematics/dynamics, simulation, and rendering, and on the fg monorepo's `../fg/h9` or the local `dg5.py` gripper agent. `h9.py`, the generic `extra/start`, and the gripper YAMLs under `yml/` are local snapshot copies of their fg originals (`../fg/h9/h9.py`, `../fg/start`, `../fg/h9/yml/`) — they do not auto-track fg updates; re-copy when the originals change. See `../tact/AGENTS.md` for the framework details.
+`kida` is a control project for a 14-DOF dual-arm manipulator (two 7-DOF arms sharing a torso `root`). It lives at `/home/ubuntu/kida` as an independent repo, but it is not a standalone framework — it sits on top of the sibling `tact` toolkit (developed in its own repo `pytact` at `github.com/tzscheng/pytact`, checked out at `../pytact` for reference) which it consumes as a **versioned PyPI release** (`pytact>=0.1.0a1` in `pyproject.toml`, from <https://pypi.org/project/pytact/>) for kinematics/dynamics, simulation, and rendering, and on the local `h9.py` or `dg5.py` gripper agent (vendored copies, see below). There is deliberately **no** `[tool.uv.sources]` override for the local `../pytact` clone: edits there never leak into kida — publish a new pytact release and bump the version pin (then `uv sync`) to pick it up. `h9.py`, the generic `etc/start`, and the gripper YAMLs under `yml/` are local snapshot copies of their fg originals (`../fg/h9/h9.py`, `../fg/start`, `../fg/h9/yml/`) — they do not auto-track fg updates; re-copy when the originals change. See the `pytact` source at `../pytact` for the framework details (that repo no longer tracks its own `AGENTS.md`).
 
 This project provides:
 
@@ -18,10 +18,10 @@ This project provides:
 ## Build / run
 
 ```bash
-./build.sh                                  # gcc → eio/eio-kida.so, eio/eio-single.so,
-                                            #       rs2/{msender,mreceiver,videorec},
-                                            #       vive/{vive-udp,vmaster}
-                                            # needs myactcan.h from ../fg/dev/myact
+./build.sh                                  # gcc → eio/eio-kida.so, eio/eio-single.so
+                                            # (uses local myactcan.h; -I.)
+cd rs2  && ./build.sh                        # rs2/{msender,mreceiver,videorec} (separate)
+cd vive && ./build.sh                        # vive/{vive-udp,vmaster} (separate; local retarget.h)
 ```
 
 Dual-arm:
@@ -80,12 +80,12 @@ The `-b` flag is the single source of truth: it sets both eio's `cmode=1` (so th
 - `single.py` uses `y_sign = +1` (left) / `-1` (right) to mirror task-space targets. The yml filename suffix (`-left` / `-right`) is what sets it — name yml files accordingly.
 - `eio-kida.c` is hard-coded for `kt = {1.4, 1.4, 1.3, 1.3, 1.3, 1.9, 1.9}` (joints 1–5 detuned because their current I-gain is zeroed) and for joint-direction sign vectors per arm. If you change either the motors or the YAML joint axes, both `kt` and `dir` need updating.
 - The C `step()` busy-waits with `usleep(3000)` to target ~240 Hz. There is no separate clock; control rate is set by that sleep.
-- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`../tact/extras/mjenv.so`, `chenv.so`) that exports `step`.
+- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`../pytact/extras/mjenv.so`, `chenv.so`) that exports `step`.
 
 ## Subdirectories
 
 - `eio/` — built C shared libs and the `eio-dg5` helper binary (tracked; a regular file, not a symlink).
-- `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built by the rs2 section of the root `build.sh`.
-- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built by the vive section of the root `build.sh`; needs ManusSDK (`../../fgx/manus`) and SteamVR.
+- `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built separately by its own `rs2/build.sh` (the root `build.sh` does not invoke it).
+- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh` (the root `build.sh` does not invoke it); needs ManusSDK (`../../fgx/manus`) and SteamVR.
 - `yml/` — kida-specific YAMLs plus gripper YAMLs (h9 ones are snapshot copies from `../fg/h9/yml/`).
-- `extra/` — temporary/experimental tools; contents change freely, don't rely on them.
+- `etc/` — temporary/experimental tools; contents change freely, don't rely on them.

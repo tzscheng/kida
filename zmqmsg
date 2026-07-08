@@ -1,0 +1,74 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+import sys, time, argparse, tty, termios, zmq
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-k', action='store_true', default=False, help='kbhit mode')
+    par.add_argument('-z', default='default', help='zmq access point index')
+    return par.parse_known_args()
+
+def getkey():
+    fd = sys.stdin.fileno()
+    original_attributes = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+        termios.tcsetattr(fd, termios.TCSADRAIN, original_attributes)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, original_attributes)        
+    return ch
+
+arg, w = parse_args()
+ctx = zmq.Context()
+push = ctx.socket(zmq.PUSH) #to master
+push.connect('ipc:///dev/shm/%s' %arg.z)
+#push.connect('tcp://192.168.0.2:5555')
+
+#single-shot mode
+if len(w) > 0:
+    msg = w[0]
+    for i in w[1:]: msg += ' ' + i
+    #print(msg)
+
+    push.send(msg.encode())
+    time.sleep(0.2)    
+    push.close()
+    sys.exit()    
+
+#console mode
+elif arg.k == False:
+    while(True):
+        msg = input('msg: ')
+        push.send(msg.encode())
+        if msg == 'quit': break
+
+#kbhit mode
+else:
+    while(True):
+        k = getkey()
+        if k == '.': break
+    
+        elif k == 'q': #quit
+            push.send(b'quit')
+            print('./quit')
+            continue
+        
+        elif k == '-': #reset
+            push.send(b'reset')
+            print('reset')
+            continue
+            
+        push.send(k.encode())
+        print(k)
+    
+push.close()
+#push1.close()
+#ctx.destroy()
+
+
+#num = ord(k) if k != 'q' else -1
+#msg = 'hit %d' %num
+#push.send(msg.encode())
+#print(msg)
+
