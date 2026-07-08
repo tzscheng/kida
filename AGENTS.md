@@ -4,22 +4,24 @@ This file provides guidance to Codex and Claude Code when working with code in t
 
 ## What this is
 
-`kida` is a control project for a 14-DOF dual-arm manipulator (two 7-DOF arms sharing a torso `root`). It is not a standalone framework — it sits on top of the sibling `tact` toolkit (`../tact`) for kinematics/dynamics, simulation, and rendering, and on `../h9` or the local `dg5.py` gripper agent. `h9.py` and the generic `start` are symlinks into sibling repos; treat symlinks as read-only here. See `../tact/AGENTS.md` for the framework details.
+`kida` is a control project for a 14-DOF dual-arm manipulator (two 7-DOF arms sharing a torso `root`). It lives at `/home/ubuntu/kida` as an independent repo, but it is not a standalone framework — it sits on top of the sibling `tact` toolkit (`../tact`, its own repo, consumed as an editable `pytact` dependency via this repo's `pyproject.toml`) for kinematics/dynamics, simulation, and rendering, and on the fg monorepo's `../fg/h9` or the local `dg5.py` gripper agent. `h9.py`, the generic `extra/start`, and the gripper YAMLs under `yml/` are local snapshot copies of their fg originals (`../fg/h9/h9.py`, `../fg/start`, `../fg/h9/yml/`) — they do not auto-track fg updates; re-copy when the originals change. See `../tact/AGENTS.md` for the framework details.
 
 This project provides:
 
 - `kida.py` — `agent` class for the full dual-arm (14 joints, `n_u=14`, `n_y=42`).
 - `single.py` — `agent` class for one arm + hand (`n_u=7`, `n_y=21`), used when running just the left or right side.
-- `kida.run` / `single.run` — executable runners (uv shebang) that replace the generic `tact/extras/start`. Unlike `start`, these wire up an arm agent **plus** one or two hand agents (`h9` or `dg5`) and concatenate the `u`/`y` vectors themselves.
-- `eio-kida.c` / `eio-single.c` → `eio/eio-kida.so` / `eio/eio-single.so` — C shared libs that drive the real arms over CAN (per-arm pthread on cores 1, 2) and the DG-5 hands over UDP (`127.0.0.1:6660` left, `:6661` right). `htype=1` forks `eio/eio-dg5` (symlink to `../../dg5/eio-dg5`); `htype=0` is H9-style hands handled inside the Python loop.
-- `yml/kida.yml`, `yml/kida-left.yml`, `yml/kida-right.yml` — robot models for the dual arm and per-arm variants. Gripper YAMLs (`dg5-*.yml`, `h9-*.yml`) are symlinks into the gripper repos.
-- `usrsample.py` — reference ZMQ client. `_/sample.py` is an older UDP-based version and `rcvpp.py` is a minimal proprio subscriber.
+- `kida.run` / `single.run` — executable runners (uv shebang) that replace the generic `fg/start`. Unlike `start`, these wire up an arm agent **plus** one or two hand agents (`h9` or `dg5`) and concatenate the `u`/`y` vectors themselves.
+- `eio-kida.c` / `eio-single.c` → `eio/eio-kida.so` / `eio/eio-single.so` — C shared libs that drive the real arms over CAN (per-arm pthread on cores 1, 2) and the DG-5 hands over UDP (`127.0.0.1:6660` left, `:6661` right). `htype=1` forks `eio/eio-dg5` (tracked binary); `htype=0` is H9-style hands handled inside the Python loop.
+- `yml/kida.yml`, `yml/kida-left.yml`, `yml/kida-right.yml` — robot models for the dual arm and per-arm variants. Gripper YAMLs (`dg5-*.yml`, `h9-*.yml`) are local files (h9 ones copied from `../fg/h9/yml/`).
+- `usrsample.py` — reference ZMQ client. `rcvpp.py` is a minimal proprio subscriber.
 
 ## Build / run
 
 ```bash
-./build.sh                                  # gcc → eio/eio-kida.so and eio/eio-single.so
-                                            # needs myactcan.h from ../dev/myact
+./build.sh                                  # gcc → eio/eio-kida.so, eio/eio-single.so,
+                                            #       rs2/{msender,mreceiver,videorec},
+                                            #       vive/{vive-udp,vmaster}
+                                            # needs myactcan.h from ../fg/dev/myact
 ```
 
 Dual-arm:
@@ -43,7 +45,7 @@ The runners pin to CPU 0 (`sched_setaffinity({0})`); the C side pins arm threads
 
 ## IPC contract
 
-These runners do **not** use `tact/extras/start`'s logging/dispatch. They do their own ZMQ binding:
+These runners do **not** use `fg/start`'s logging/dispatch. They do their own ZMQ binding:
 
 - PULL `ipc:///dev/shm/default` — commands. Top-level words `quit`/`reset` are handled in the runner; otherwise the message is split on `,` into up to three substrings (arm, hand1, hand2 for `kida.run`; arm, hand for `single.run`) and each is forwarded to that agent's `msgproc`.
 - PUB CONFLATE `ipc:///dev/shm/proprio` — `y.astype(float32).tobytes()`. Cycle: every 2 sim ticks (~120 Hz) on real hardware, every 33 ticks (~30 Hz) in sim.
@@ -78,10 +80,12 @@ The `-b` flag is the single source of truth: it sets both eio's `cmode=1` (so th
 - `single.py` uses `y_sign = +1` (left) / `-1` (right) to mirror task-space targets. The yml filename suffix (`-left` / `-right`) is what sets it — name yml files accordingly.
 - `eio-kida.c` is hard-coded for `kt = {1.4, 1.4, 1.3, 1.3, 1.3, 1.9, 1.9}` (joints 1–5 detuned because their current I-gain is zeroed) and for joint-direction sign vectors per arm. If you change either the motors or the YAML joint axes, both `kt` and `dir` need updating.
 - The C `step()` busy-waits with `usleep(3000)` to target ~240 Hz. There is no separate clock; control rate is set by that sleep.
-- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`tact/extras/mjenv.so`, `chenv.so`) that exports `step`.
+- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`../tact/extras/mjenv.so`, `chenv.so`) that exports `step`.
 
 ## Subdirectories
 
-- `_/` — scratch/archive (older UDP-based `sample.py`, `act/` mini-ACT transformer experiment, `rcvpp.py`). Don't edit unless asked.
-- `eio/` — built C shared libs and the `eio-dg5` symlink to `../../dg5/eio-dg5`.
-- `yml/` — kida-specific YAMLs plus symlinks to gripper YAMLs in sibling repos. `yml/_` is empty scratch.
+- `eio/` — built C shared libs and the `eio-dg5` helper binary (tracked; a regular file, not a symlink).
+- `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built by the rs2 section of the root `build.sh`.
+- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built by the vive section of the root `build.sh`; needs ManusSDK (`../../fgx/manus`) and SteamVR.
+- `yml/` — kida-specific YAMLs plus gripper YAMLs (h9 ones are snapshot copies from `../fg/h9/yml/`).
+- `extra/` — temporary/experimental tools; contents change freely, don't rely on them.

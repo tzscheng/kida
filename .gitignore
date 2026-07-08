@@ -1,0 +1,51 @@
+# ============================================================
+#  .gitignore  —  project root: /home/ubuntu/kida
+#  원칙: 소스/설정/자산은 추적, 대용량 생성물·환경은 제외
+# ============================================================
+
+# ── 파이썬 가상환경 ──
+.venv/
+venv/
+env/
+
+# ── 파이썬 캐시 / 빌드 ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# ── 컴파일된 네이티브 바이너리 (build.sh로 재빌드; eio/eio-dg5는 추적 중) ──
+*.so
+*.o
+*.a
+
+# ── 모델 가중치 / 데이터 ──
+*.pkl
+*.npz
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.zip
+
+# ── 미디어 / 로그 ──
+*.mp4
+*.avi
+*.gif
+*.log
+*.pid
+*.json
+
+# ── archive/scratch 디렉터리 ──
+**/_/
+
+# ── Agent/assistant 로컬 메타데이터 ──
+.agents/
+.codex/
+.claude/
+
+# ── OS / 에디터 잡파일 ──
+.DS_Store
+*.swp
+*~

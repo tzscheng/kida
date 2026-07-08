@@ -1,0 +1,253 @@
+#!/usr/bin/env -S uv run python -u
+# -*- mode: python -*-
+import sys, os, argparse, time, h5py, threading, queue, numpy as np
+import zmq
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-t', default=-1, type=int, help='operation  type: [0]kida-left, [1]kida-right, [2]kida,  [5]gos10')
+    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5]')
+    return par.parse_args()
+
+def hdf5_write_task(data_queue:queue.Queue):
+    global running
+    episode = 0
+    image_width = 640
+    image_height = 480
+    buf_size = 64
+
+    # 활성 에피소드가 없을 때 f is None. 첫 데이터가 큐에 도착하면 그때 파일을 만든다.
+    f = None
+    fname = None
+    img_ds = []
+    proprio_ds = action_ds = timestamp_ds = None
+    img_buf = []
+    proprio_buf = action_buf = timestamp_buf = None
+    buf_count = 0
+    total_count = 0
+
+    def flush_buffer():
+        nonlocal buf_count, total_count
+        if buf_count == 0: return
+
+        start = total_count
+        end = start + buf_count
+
+        for i in range(num_camera): img_ds[i].resize(end, axis=0)
+        proprio_ds.resize(end, axis=0)
+        action_ds.resize(end, axis=0)
+        timestamp_ds.resize(end, axis=0)
+
+        for i in range(num_camera):
+            for j in range(buf_count):
+                img_ds[i][start + j] = img_buf[i][j]
+
+        proprio_ds[start:end] = proprio_buf[:buf_count]
+        action_ds[start:end] = action_buf[:buf_count]
+        timestamp_ds[start:end] = timestamp_buf[:buf_count]
+
+        total_count = end
+        buf_count = 0
+        f.flush()
+
+    def open_episode():
+        nonlocal f, fname, img_ds, proprio_ds, action_ds, timestamp_ds
+        nonlocal img_buf, proprio_buf, action_buf, timestamp_buf
+        nonlocal buf_count, total_count, episode
+
+        episode += 1
+        print('[logger] recording episode-%d' % episode)
+        fname = 'ep-%d.h5' % int(time.time())
+        f = h5py.File(fname, "w")
+        obs = f.create_group("observations")
+        img = obs.create_group('images')
+
+        img_ds = []
+        vlen_u8 = h5py.vlen_dtype(np.dtype('uint8'))
+        for i in range(num_camera):
+            img_ds.append(img.create_dataset(cam_name[i], shape=(0,), maxshape=(None,), dtype=vlen_u8, chunks=(buf_size,)))
+
+        # v2: proprio (was observations/proprioceptive_data — shortened to proprio for brevity)
+        proprio_ds = obs.create_dataset("proprio", shape=(0, num_proprio), maxshape=(None, num_proprio), dtype=np.float32, chunks=(buf_size, num_proprio),)
+        # v2: actions as a top-level dataset (was actions/target_positions inside an actions group)
+        action_ds = f.create_dataset("actions", shape=(0, num_action), maxshape=(None, num_action), dtype=np.float32, chunks=(buf_size, num_action),)
+        timestamp_ds = f.create_dataset("timestamps", shape=(0,), maxshape=(None,), dtype=np.float64, chunks=(buf_size,),)
+
+        f.attrs["image_height"] = image_height
+        f.attrs["image_width"] = image_width
+        #f.attrs["image_channels"] = 3
+        f.attrs["num_proprio"] = num_proprio
+        f.attrs["num_action"] = num_action
+
+        img_buf = []
+        for i in range(num_camera):
+            img_buf.append([None] * buf_size)
+
+        proprio_buf = np.empty((buf_size, num_proprio), dtype=np.float32)
+        action_buf = np.empty((buf_size, num_action), dtype=np.float32)
+        timestamp_buf = np.empty((buf_size,), dtype=np.float64)
+
+        buf_count = 0
+        total_count = 0
+
+    def close_episode():
+        nonlocal f, fname
+        flush_buffer()
+        f.attrs["num_steps"] = total_count
+        f.close()
+        if total_count == 0:
+            try: os.remove(fname); print('[logger] removed empty %s' % fname)
+            except OSError: pass
+        f = None
+        fname = None
+
+    while running:
+        try: item = data_queue.get(timeout=0.5)
+        except queue.Empty: continue
+
+        if item is None:
+            data_queue.task_done()
+            if f is not None: close_episode()
+            continue
+
+        if f is None: open_episode()
+
+        imgs, proprio, action, timestamp = item
+
+        for i in range(num_camera):
+            img_buf[i][buf_count] = imgs[i]
+
+        proprio_buf[buf_count] = proprio
+        action_buf[buf_count] = action
+        timestamp_buf[buf_count] = timestamp
+
+        buf_count += 1
+        if buf_count >= buf_size: flush_buffer()
+        data_queue.task_done()
+
+    # quit 등으로 running=False 가 되었을 때 진행 중이던 에피소드를 마무리.
+    if f is not None: close_episode()
+    
+arg = parse_args()
+if arg.t < 0 : print('[logger] wrong type'); sys.exit()
+if arg.t != 5 and arg.g < 0 : print('[logger] wrong gripper'); sys.exit()
+
+running = True
+log_on = False
+
+if arg.t in [0, 1]:
+    cam_name = ['headcam', 'wristcam']
+    if arg.g == 0:
+        num_proprio = 39 #7*3 + 9*2
+        num_action = 15 #6 + 9  
+    elif arg.g == 1:
+        num_proprio = 81 #7*3 + 20*3
+        num_action = 26 #6 + 20
+
+elif arg.t == 2:
+    cam_name = ['headcam', 'leftcam', 'rightcam']
+    if arg.g == 0:
+        num_proprio = 78 #14*3 + 9*2 + 9*2
+        num_action = 30 #12 + 9 + 9
+    elif arg.g == 1:
+        num_proprio = 162 #14*3 + 20*3 + 20*3
+        num_action = 52 #12 + 20 + 20
+
+elif arg.t == 5:
+    cam_name = ['topcam', 'sidecam']
+    num_proprio = 16
+    num_action = 7
+
+num_camera = len(cam_name)
+
+ctx = zmq.Context.instance()
+opcmd_sock = ctx.socket(zmq.PULL) #operation command from masterx
+opcmd_sock.bind("ipc:///dev/shm/logger")
+
+proprio_sock = ctx.socket(zmq.SUB)
+proprio_sock.setsockopt(zmq.CONFLATE, 1)     # 항상 최신 1개만 유지
+proprio_sock.setsockopt(zmq.SUBSCRIBE, b'')  # endpoint 자체가 분리자
+proprio_sock.connect("ipc:///dev/shm/proprio")
+
+# 카메라 스트림마다 독립 SUB 소켓. publisher 쪽은 각 카메라를
+# ipc:///dev/shm/<cam_name> 에 개별 publish 한다고 가정.
+cam_socks = []
+for name in cam_name:
+    s = ctx.socket(zmq.SUB)
+    s.setsockopt(zmq.CONFLATE, 1)
+    s.setsockopt(zmq.SUBSCRIBE, b'')
+    s.connect("ipc:///dev/shm/" + name)
+    cam_socks.append(s)
+
+poller = zmq.Poller()
+poller.register(opcmd_sock, zmq.POLLIN)
+poller.register(proprio_sock, zmq.POLLIN)
+for s in cam_socks: poller.register(s, zmq.POLLIN)
+
+data_queue = queue.Queue(maxsize=128)
+writer = threading.Thread(target=hdf5_write_task, args=(data_queue,), daemon=False,)
+writer.start()
+
+latest_imgs = [None] * num_camera  # 각 카메라별 최신 프레임 bytes
+latest_action = None               # 최신 action 벡터 (np.float32, length == num_action)
+latest_proprio = None              # 최신 proprio 벡터 (np.float32, length == num_proprio)
+
+while running:
+    try: events = dict(poller.poll(timeout=100))  # ms
+    except zmq.ZMQError: break
+
+    if opcmd_sock in events:
+        packet = opcmd_sock.recv()
+        w = [s.split() for s in packet.decode().split(',')]
+
+        if w[0][0] == 'log-on':
+            print('[logger] log-on')
+            log_on = True
+
+        elif w[0][0] == 'log-off' and log_on:
+            data_queue.put(None)
+            print('[logger] log-off')
+            log_on = False
+
+        elif w[0][0] == 'quit':
+            running = False
+            break
+
+        else:
+            # action 명령 (e.g. "task 0.1 0.2 ..."): action만 업데이트
+            tmp = []
+            for i in range(len(w)): tmp += w[i][1:]
+            t = np.array(tmp, dtype=np.float32)
+            if len(t) == num_action: latest_action = t
+
+    if proprio_sock in events:
+        payload = proprio_sock.recv()
+        p = np.frombuffer(payload, dtype=np.float32)
+        if len(p) == num_proprio: latest_proprio = p.copy()
+
+    # 각 카메라 소켓 처리. 마지막 카메라 (num_camera - 1) 프레임이
+    # 도착했을 때만 한 사이클 완료로 간주하고 저장 트리거.
+    for i, s in enumerate(cam_socks):
+        if s not in events: continue
+        latest_imgs[i] = s.recv()
+
+        if i != len(cam_name) - 1: continue
+        if not log_on: continue
+        if latest_action is None: continue
+        if latest_proprio is None: continue
+
+        imgs = [np.frombuffer(x, dtype=np.uint8) for x in latest_imgs]
+        data_queue.put((imgs, latest_proprio, latest_action, time.time()))
+
+data_queue.join()
+writer.join()
+
+opcmd_sock.close()
+proprio_sock.close()
+for s in cam_socks: s.close()
+ctx.term()
+
+print('[logger] finished...')
+
+
+#and all(img is not None for img in latest_imgs) \

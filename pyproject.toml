@@ -1,0 +1,26 @@
+# Dev workspace for the standalone kida repo (/home/ubuntu/kida).
+# uv run from this directory resolves here (fg's workspace is not reachable
+# once kida lives outside /home/ubuntu/fg — getcwd() is physical).
+[project]
+name = "kida"
+version = "0.1.0"
+description = "kida 14-DoF dual-arm manipulator control project"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "diffusers>=0.37.1",
+    "h5py>=3.16.0",
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.4",
+    "opencv-python>=4.13",
+    "pytact",
+    "pyyaml>=6.0.3",
+    "pyzmq>=27.1.0",
+    "zstandard>=0.25.0",
+]
+
+[tool.uv.sources]
+pytact = { path = "../tact", editable = true }
+
+[tool.uv]
+package = false

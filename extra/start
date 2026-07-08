@@ -1,0 +1,222 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+# `start` lives at the fg repo root; per-project symlinks (e.g. zen/start →
+# ../start) resolve here. `import tact` comes from the workspace venv (pytact
+# is a declared editable dependency on ../tact in pyproject.toml); the fg/tact
+# symlink, when present, merely shadows it with the same package.
+import sys, os
+if not sys.path[0]: sys.path[0] = os.getcwd()
+import importlib, ctypes, argparse, numpy as np, zmq, tact
+from collections import deque
+
+# tact assets (extras/mjenv.so, extras/mjcf/, extras/envs/) live in the tact
+# checkout, located via the imported package rather than this script's path.
+TACT_ROOT = os.path.dirname(os.path.realpath(tact.pkg_dir))
+EXTRAS_ROOT = os.path.join(TACT_ROOT, 'extras')
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-m', action='store_true', default=False, help='mujoco backend; robot model = <module>.xml, environment via -e')
+    par.add_argument('-x', default=False, nargs='?', help='real')
+    par.add_argument('-y', default=None, help='yml file name')
+    par.add_argument('-e', default=None, help='environment scene: yml for the tact backend, xml for -m (searched in cwd then tact/extras/mjcf/)')
+    par.add_argument('-o', nargs=6, default=[0, 0, 0, 0, 0, 0], type=float, help='offset')
+    par.add_argument('-d', default=None, help = 'dispatch')
+    par.add_argument('-t', default=16, type=int, help = 'redraw step (16 => x1.0 speed')
+    par.add_argument('-v', action='store_true', default=False, help='verbose')
+    par.add_argument('-l', action='store_true', default=False, help='headless sim. (no window)')
+    par.add_argument('-f', type=int, default=1, help='physics ticks per control update (default 1); last tau/q_ref/qd_ref held between control ticks')
+    #par.add_argument('-u', action='store_true', default=False, help='use UDP instead of ZMQ')
+    return par.parse_known_args()
+
+def msgproc(msg):
+    global cnt
+    if arg.d == None: fout.write('%d %s\n' %(cnt, msg))
+
+    w = msg.decode().split()
+    if w[0] == 'quit': env.finish(); sys.exit(0)
+    elif w[0] == 'reset' and arg.x == False: cnt = 0   # main loop's `if cnt == 0:` block re-creates controller + calls env.reset
+    else: controller.msgproc(w)
+
+try: os.sched_setaffinity(0, {0})                                                       
+except Exception as e: print('set affinity failed'); sys.exit()
+    
+arg, src = parse_args()
+if len(src) != 1: print('wrong command..'); sys.exit(0)
+cnt = 0
+
+sys.path.insert(0, os.path.abspath(os.getcwd())) 
+mod = importlib.import_module(src[0])
+
+ymlname = src[0] if arg.y == None else arg.y
+if not os.path.exists(ymlname + '.yml'): ymlname = 'yml/' + ymlname
+
+if arg.m:
+    # robot model xml is named after the controller module and lives next to it
+    # (e.g. dog/dog.xml); xml/ kept as a transitional fallback.
+    if   os.path.exists('%s.xml' %src[0]): xmlpath = '%s.xml' %src[0]
+    elif os.path.exists('xml/%s.xml' %src[0]): xmlpath = 'xml/%s.xml' %src[0]
+    else: print('cannot find xml...'); sys.exit(0)
+    # -e names a robot-independent environment xml: project dir first, then the
+    # shared library tact/extras/mjcf/ (e.g. 0.xml = infinite plane floor). mjenv
+    # attaches it into the robot spec (mjSpec) — same composition as tact's
+    # env.add, so one env file serves every robot.
+    envpath = None
+    if arg.e != None:
+        if   os.path.exists('%s.xml' %arg.e): envpath = '%s.xml' %arg.e
+        elif os.path.exists(f'{EXTRAS_ROOT}/mjcf/{arg.e}.xml'): envpath = f'{EXTRAS_ROOT}/mjcf/{arg.e}.xml'
+        else: print('cannot find env xml...'); sys.exit(0)
+    cdll = ctypes.CDLL(f'{EXTRAS_ROOT}/mjenv.so')
+    # mjenv.cpp::init third arg is `render`: 0 → no GLFW window (headless),
+    # >0 → window + redraw every Nth step. Honors -l like the tact backend.
+    cdll.init(xmlpath.encode(), envpath.encode() if envpath else None, 0 if arg.l else arg.t)
+    # plan (a): the project YAML is THE sensor-spec source for every backend —
+    # parse it once (throwaway Model) and hand the lidar specs + frame offsets
+    # (Model.ftran of each registered sensor frame) to CEnv, which publishes
+    # the same topics as the tact backend. The YAML body name resolves in the
+    # XML as a body, else a site (zen: xml body origin differs from the yml's,
+    # so the site "base" marks the yml base frame); neither → warned + skipped.
+    lidars = None
+    try:
+        _sm = tact.Model(ymlname)
+        lidars = [dict(l, _Toff=_sm.ftran[_sm.fdict[l['name']]]) for l in _sm.lidars]
+        del _sm
+    except FileNotFoundError:
+        pass                            # xml-only project: no YAML sensor specs
+    env = tact.CEnv(cdll, n_y=mod.Controller.n_y, n_u=mod.Controller.n_u, backend='mujoco', has_pd=True, lidars=lidars)
+
+elif arg.x != False:
+    if   os.path.exists('./eio.so'): eiopath = './eio.so'
+    elif os.path.exists('./eio-%s.so' %src[0]): eiopath = './eio-%s.so' %src[0]
+    elif os.path.exists('./eio/eio.so'): eiopath = './eio/eio.so'
+    elif os.path.exists('./eio/eio-%s.so' %src[0]): eiopath = './eio/eio-%s.so' %src[0]
+    else: print('cannot find eio...'); sys.exit(0)
+    cdll = ctypes.CDLL(eiopath)
+    if arg.x == None: cdll.init()
+    else: cdll.init(arg.x.encode())
+    env = tact.CEnv(cdll, n_y=mod.Controller.n_y, n_u=mod.Controller.n_u, backend='real', has_pd=False)
+
+else:
+    if arg.l: env = tact.Env(ymlname, offset=arg.o, render=False) #headless mode
+    else:     env = tact.Env(ymlname, offset=arg.o, render=True, redraw=arg.t) #GUI mode
+    
+    if arg.e != None:
+        if os.path.exists('%s.yml' %arg.e): env.add('%s' %arg.e)
+        elif os.path.exists('yml/%s.yml' %arg.e): env.add('yml/%s' %arg.e)
+        elif os.path.exists(f'{EXTRAS_ROOT}/envs/{arg.e}.yml'): env.add(f'{EXTRAS_ROOT}/envs/{arg.e}')
+        elif os.path.exists(f'{tact.pkg_dir}/demos/{arg.e}.yml'): env.add(f'{tact.pkg_dir}/demos/{arg.e}')
+        else:
+            found = None
+            for root in (f'{EXTRAS_ROOT}/envs', f'{tact.pkg_dir}/demos'):
+                for dirpath, _, _ in os.walk(root):
+                    path = os.path.join(dirpath, arg.e)
+                    if os.path.exists(path + '.yml'):
+                        found = path
+                        break
+                if found: break
+            if found: env.add(found)
+            else: print('cannot find yml...'); sys.exit()
+
+ctx = zmq.Context()
+pull = ctx.socket(zmq.PULL)
+pull.bind('ipc:///dev/shm/default')
+
+ppub = ctx.socket(zmq.PUB)
+ppub.setsockopt(zmq.CONFLATE, 1)
+ppub.bind('ipc:///dev/shm/proprio')
+
+# rate = control loop ticks/sec, derived from env's physics rate: rate = (1/dt)/frameskip.
+# tact.Env exposes env.dt; CEnv (mujoco/chrono/real) does not — for those, rate stays
+# None and each Controller falls back to its own default (project-specific HW pacing).
+dt = getattr(env, 'dt', None)
+rate = int(round(1.0/dt)) // arg.f if dt is not None else None
+
+proprio_update_cycle = 16 if arg.x else 33  # real HW ~120Hz vs sim ~30Hz
+
+# Sensor publishing: capability-based (docs/backend-interface.md) — tact always,
+# mujoco when its CEnv resolved lidar specs from the project YAML (2026-06-08;
+# plan (a): one YAML = one sensor source per project), chrono/real have empty
+# registries (real HW: device drivers publish to the same topics from outside).
+# One ZMQ PUB per declared sensor; rate-gating + type dispatch live in
+# env.camera_frames()/lidar_frames(), here we only own the sockets, keyed by
+# sensor name (names are unique across cameras, lidars, and tactiles).
+socks = {}
+for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'lidars', [])) + list(getattr(env, 'tactiles', [])):
+    s = ctx.socket(zmq.PUB)
+    s.setsockopt(zmq.CONFLATE, 1)
+    s.bind('ipc:///dev/shm/%s' %c['name'])
+    socks[c['name']] = s
+
+if arg.d == None:
+    fout = open('/dev/shm/out.txt', mode='w')
+else:
+    fin = open(arg.d, mode='r')
+    L = fin.readlines()
+    q = deque()
+    for i in L: q.append(i.strip().split(maxsplit=1))
+    for i in range(len(q)): q[i][0] = int(q[i][0])
+
+tau = q_ref = qd_ref = None     # held between control ticks (frameskip ZOH)
+
+while True:
+    try: msg = pull.recv(flags=zmq.NOBLOCK)
+    except zmq.ZMQError: pass
+    else: msgproc(msg); continue
+
+    if arg.d and len(q) > 0:
+        if cnt == q[0][0]: msgproc(q[0][1].encode()); print(q[0]); q.popleft()
+
+    # cnt == 0 marks a fresh session — either initial startup or after a 'reset' command.
+    # Recreate the controller (wipes its internal state) and reset env (returns initial y
+    # for the Gym-style observe→decide→act loop below).
+    if cnt == 0:
+        controller = mod.Controller(env, ymlname, rate=rate, verbose=arg.v)
+        y = env.reset()
+
+    # unified interface: update(y) returns the 5-tuple COMMAND
+    #     (tau, q_ref, qd_ref, kp, kd)
+    # — the general affine joint feedback law τ = τ_ff + kp·(q_ref−q) + kd·(qd_ref−qd);
+    # every servo mode is a projection (torque: refs/gains None; position servo:
+    # q_ref+gains; velocity: qd_ref+kd; impedance: all five). Same shape as the
+    # MIT-mode / Unitree MotorCmd actuator packet, so a real QDD driver consumes it
+    # verbatim; industrial-arm eio shims translate at the wire (gains → drive
+    # registers or ignored). Gains are per-DECISION outputs: a mode switch returns
+    # its own kp/kd atomically with its refs (YAML k: removed 2026-06-07; emitting
+    # q_ref without kp raises in Model.step/CEnv.step). mjenv consumes the same
+    # five (writes position-actuator gainprm per step — XML kp/kv are placeholders).
+    # Gain VALUES don't transfer 1:1 across backends (tact implicit vs mujoco
+    # explicit PD) — controller's responsibility.
+    # Frameskip: controller.update() runs every arg.frameskip physics ticks; in
+    # between, the whole last 5-tuple is re-applied (ZOH).
+    if cnt % arg.f == 0:
+        ret = controller.update(y)
+        if len(ret) != 5:
+            raise TypeError(
+                "controller.update(y) must return the 5-tuple command "
+                "(tau, q_ref, qd_ref, kp, kd) — gains became per-decision control "
+                f"outputs 2026-06-07 (got {len(ret)} values; torque-only controllers "
+                "return tau, None, None, None, None)")
+        tau, q_ref, qd_ref, kp, kd = ret
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
+    
+    #update priprio feedback
+    if cnt % proprio_update_cycle == 0:
+        proprio = y.astype(np.float32).tobytes() #proprioceptive data
+        ppub.send(proprio) 
+
+    #update camera/lidar/tactile feedback — capability-based: the socket table is empty
+    #when the backend declared no sensors, and each frames() generator exists
+    #iff its registry is non-empty (mujoco CEnv: lidar_frames only, no cameras);
+    #rate-gating + type dispatch live in env.*_frames()
+    if socks:
+        if hasattr(env, 'camera_frames'):
+            for name, buf in env.camera_frames():
+                socks[name].send(buf)
+        if hasattr(env, 'lidar_frames'):
+            for name, buf in env.lidar_frames():
+                socks[name].send(buf)
+        if hasattr(env, 'tactile_frames'):
+            for name, buf in env.tactile_frames():
+                socks[name].send(buf)
+
+    cnt += 1
