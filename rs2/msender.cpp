@@ -42,7 +42,7 @@ struct CameraWorkerContext
 {
     int camera_idx = -1;
     std::string serial;
-    std::string logical_name;     // 명령행 인자 그대로 (예: "cam1:d"). ipc:///dev/shm/<logical_name> 으로 bind.
+    std::string logical_name;     // ':type' hint 를 제거한 이름. ipc:///dev/shm/<logical_name> 으로 bind.
     int image_type = IMG_RGB;     // 카메라별 IMG_RGB / IMG_DEPTH. ':type' hint 로 결정.
     void* sock = nullptr;
     int display_index = -1;       // display_slots 인덱스. 명령행 입력 순서를 따름.
@@ -61,20 +61,20 @@ static std::atomic<bool> g_request_exec(false);
 void print_usage(const char* cmd)
 {
     printf("Usage : %s <name[:type]> [name[:type] ...] [options]\n", cmd);
-    printf("   name[:type]       per-camera spec; full token is the ZMQ endpoint name.\n");
+    printf("   name[:type]       per-camera spec; name is the ZMQ endpoint name.\n");
     printf("                     ':type' is the per-camera mode hint: 'r'/'rgb' (default),\n");
-    printf("                     'd'/'depth', or omitted (= rgb). The hint stays in the\n");
-    printf("                     endpoint name, so 'cam1:d' binds ipc:///dev/shm/cam1:d.\n");
+    printf("                     'd'/'depth', or omitted (= rgb). The hint is stripped from\n");
+    printf("                     the endpoint name, so 'cam1:d' binds ipc:///dev/shm/cam1.\n");
     printf("   -d                Enable display window (default: OFF)\n");
     printf("   -q <jpeg quality> JPEG quality, RGB streams only (default: 80)\n");
     printf("   -z <zstd level>   ZSTD level, depth streams only (default: 1)\n");
     printf("\n");
-    printf("Endpoint tokens are sorted alphabetically and matched against RealSense\n");
+    printf("Endpoint names are sorted alphabetically and matched against RealSense\n");
     printf("serials sorted ascending. Command-line order is preserved only for display\n");
-    printf("tile layout (-d). Duplicate tokens are deduped silently.\n");
+    printf("tile layout (-d). Duplicate endpoint/type pairs are deduped silently.\n");
     printf("\n");
     printf("Examples:\n");
-    printf("   %s cam1:r cam2:d cam0   # cam0 + cam1:r → RGB, cam2:d → depth\n", cmd);
+    printf("   %s cam1:r cam2:d cam0   # cam0 + cam1 → RGB, cam2 → depth\n", cmd);
     printf("   %s top side             # both RGB (no hint = rgb)\n", cmd);
     printf("   %s top:d side:d         # both depth\n", cmd);
 }
@@ -624,9 +624,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Positional: 각 토큰 'name[:type]'. 토큰 전체를 ZMQ endpoint 이름으로 사용 (ipc:///dev/shm/<token>).
-    // ':type' 뒤 hint 는 RGB/Depth 판정에만 쓰고 endpoint 문자열에서 떼지 않는다.
-    // 즉 'cam1:d' → endpoint="cam1:d", type=DEPTH. 'cam0' → endpoint="cam0", type=RGB.
+    // Positional: 각 토큰 'name[:type]'. ':type' hint 는 RGB/Depth 판정에만 쓰고
+    // endpoint 에서는 제거한다. 즉 'cam1:d' → endpoint="cam1", type=DEPTH.
     struct Spec { std::string endpoint; int image_type; int input_idx; };
     std::vector<Spec> specs;
 
@@ -640,9 +639,11 @@ int main(int argc, char *argv[])
         }
 
         int type = IMG_RGB;
+        std::string name = arg;
         auto colon = arg.find(':');
         if(colon != std::string::npos)
         {
+            name = arg.substr(0, colon);
             std::string hint = arg.substr(colon + 1);
             std::transform(hint.begin(), hint.end(), hint.begin(),
                            [](unsigned char c){ return std::tolower(c); });
@@ -656,11 +657,30 @@ int main(int argc, char *argv[])
             }
         }
 
-        // Endpoint(=full token) 기준 dedup. 동일 토큰 두 번이면 같은 IPC 경로에 bind 두 번 → 실패.
-        // 따라서 silent dedup. 'cam1:r' 과 'cam1:d' 는 서로 다른 토큰이므로 충돌 아님.
+        if(name.empty())
+        {
+            std::cerr << "Empty stream name in argument '" << arg << "'\n";
+            return -1;
+        }
+
+        // Endpoint 기준 dedup. 같은 name 에 같은 type 을 반복 지정하면 첫 항목만 사용하고,
+        // 같은 endpoint 에 다른 type 을 요구하면 하나의 IPC 경로에 두 stream 을 bind 할 수 없으므로 거부.
         bool dup = false;
-        for(const auto& sp : specs) if(sp.endpoint == arg) { dup = true; break; }
-        if(!dup) specs.push_back({arg, type, (int)specs.size()});
+        for(const auto& sp : specs)
+        {
+            if(sp.endpoint != name) continue;
+
+            if(sp.image_type != type)
+            {
+                std::cerr << "Conflicting type hints for endpoint '" << name
+                          << "' (cannot publish RGB and depth on one endpoint)\n";
+                return -1;
+            }
+
+            dup = true;
+            break;
+        }
+        if(!dup) specs.push_back({name, type, (int)specs.size()});
     }
 
     if(specs.empty())
@@ -735,7 +755,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // sorted_specs: endpoint(=full token) 알파벳 오름차순. realsense serial 오름차순과 zip 해서 매핑.
+    // sorted_specs: endpoint name 알파벳 오름차순. realsense serial 오름차순과 zip 해서 매핑.
     // 명령행 입력 순서는 display 타일 배치용으로만 보존 (각 spec 의 input_idx).
     std::vector<Spec> sorted_specs = specs;
     std::sort(sorted_specs.begin(), sorted_specs.end(),

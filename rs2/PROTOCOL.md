@@ -8,15 +8,10 @@ only the build/run and sharp-edge summary.
 `msender` and `mreceiver` communicate through Unix-domain ZMQ sockets at
 `ipc:///dev/shm/<token>`.
 
-On `msender`, the token is the full positional arg verbatim: `cam1:d` binds
-`ipc:///dev/shm/cam1:d`. RGB vs depth is picked from the same `:type` suffix,
-and the suffix is not stripped from the endpoint path.
-
-On `mreceiver`, `name:type` connects to `ipc:///dev/shm/<name>` and the suffix
-only selects the decoder. Consequence: depth streams from new-style `msender`
-do not pair with `./mreceiver foo:d` unless the sender also binds `foo` or the
-receiver is changed to use the full token as endpoint. RGB without a hint
-(`./msender foo` and `./mreceiver foo`) remains compatible.
+Both `msender` and `mreceiver` parse positional args as `name[:type]`.
+`name` becomes the endpoint token, and `:type` only selects RGB/depth/lidar
+handling. For example, `./msender cam1:d` binds `ipc:///dev/shm/cam1`, and
+`./mreceiver cam1:d` connects to `ipc:///dev/shm/cam1` using depth decode.
 
 Both sides set `ZMQ_CONFLATE=1`. The sender also sets `ZMQ_LINGER=0`.
 
@@ -42,19 +37,19 @@ first-frame success; these are diagnostics, not failure paths.
 ## Logical Name To Serial Mapping
 
 `msender` does not pin logical names to serials. It enumerates devices, sorts
-serials ascending, sorts unique full positional tokens alphabetically, and zips
-the two lists.
+serials ascending, sorts unique endpoint names alphabetically, and zips the two
+lists.
 
 Examples:
 
 - `./msender top side`: lower serial becomes `side`, higher becomes `top`.
-- `./msender cam1:d cam0:r`: lower serial becomes `cam0:r`.
+- `./msender cam1:d cam0:r`: lower serial becomes `cam0`.
 
 Input order affects display tile layout when `-d` is enabled, but not serial
 assignment. Stable token-to-camera binding would need new code.
 
-Tokens are deduped by full-string match. `cam1:r` and `cam1:d` are distinct and
-would require two physical cameras.
+Repeated endpoint/type pairs are deduped. `cam1:r` and `cam1:d` conflict
+because they target the same endpoint with different encodings.
 
 ## Encoding
 

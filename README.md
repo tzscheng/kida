@@ -8,12 +8,12 @@ clone한 repo 루트에서 실행합니다.
 
 ```bash
 uv sync          # .venv 생성 (numpy, zmq, opencv, pytact(PyPI) 등)
-./build.sh       # eio/ hardware bridge (rs2/·vive/는 각 폴더에서 별도 빌드)
+cd eio && ./build.sh   # eio/ hardware bridge (rs2/·vive/는 각 폴더에서 별도 빌드)
 ```
 
-루트 `build.sh`는 **eio만** 빌드합니다. **rs2**·**vive**는 각 폴더의 별도 `build.sh`로 **따로** 빌드합니다 (루트 `build.sh`는 이들을 호출하지 않음):
+**eio**·**rs2**·**vive**는 각 폴더의 별도 `build.sh`로 **따로** 빌드합니다:
 
-- **eio** — `eio-kida.c`/`eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`는 DGSDK가 설치된 머신에서만 재빌드됩니다. (루트 `build.sh`)
+- **eio** — `eio/eio-kida.c`/`eio/eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`는 DGSDK가 설치된 머신에서만 재빌드됩니다. → `cd eio && ./build.sh`
 - **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`). → `cd rs2 && ./build.sh`
 - **vive** — Vive tracker + Manus teleop (`vive/vive-udp`, `vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
 
@@ -182,10 +182,11 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 | `yaml/h9-left.yaml`, `yaml/h9-right.yaml` | H9 hand model (`../fg/h9/yml/` 복사본) |
 | `yaml/dg5f-left.yaml`, `yaml/dg5f-right.yaml` | DG5F hand model |
 | `yaml/desk1.yaml` | 시뮬레이션 desk scene |
-| `eio-kida.c`, `eio-single.c`, `eio-dg5f.c` | hardware bridge 소스 |
+| `eio/eio-kida.c`, `eio/eio-single.c`, `eio/eio-dg5f.c` | hardware bridge 소스 |
+| `eio/myactcan.h` | MyActuator CAN helper header |
+| `eio/build.sh` | eio 빌드 스크립트 |
 | `eio/eio-kida.so`, `eio/eio-single.so` | 실제 dual/single-arm backend shared library |
 | `eio/eio-dg5f` | DG5F hand hardware bridge |
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
 | `vive/` | Vive tracker + Manus teleop 도구 (`vive-udp`, `vmaster`, `logger`, `player`, `steamvr.sh`, `calib/`) |
-| `build.sh` | eio 빌드 스크립트 (rs2/·vive/는 각 폴더의 `build.sh`에서 별도 빌드) |
 | `pyproject.toml`, `uv.lock` | uv 환경 (`pytact` PyPI 패키지 포함) |

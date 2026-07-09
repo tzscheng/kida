@@ -4,8 +4,7 @@ This file provides guidance to Codex and Claude Code when working with code in t
 
 ## Build
 
-No Make/CMake. This dir's own `build.sh` is standalone — the top-level kida
-`build.sh` does **not** invoke it. It builds:
+No Make/CMake. This dir's own `build.sh` is standalone. It builds:
 
 - `vive-udp` from `vive-udp.cpp`
 - `vmaster` from `vmaster.cpp`

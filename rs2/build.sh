@@ -3,8 +3,8 @@
 # ============================================================
 #  rs2/ — RealSense multicam streamer
 # ============================================================
-# Split out of kida/build.sh. Runnable standalone (cd rs2 && ./build.sh) or
-# invoked by the top-level kida/build.sh. Resolves its own dir so CWD-agnostic.
+# Runnable standalone (cd rs2 && ./build.sh). Resolves its own dir so
+# CWD-agnostic.
 
 cd "$(dirname "$0")"
 

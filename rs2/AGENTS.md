@@ -5,8 +5,7 @@ This file provides guidance to Codex and Claude Code when working with code in t
 ## Build
 
 There is no Make/CMake. The canonical g++ invocations live in this dir's own
-`build.sh`. It is standalone — the top-level kida `build.sh` does **not** invoke
-it; build rs2 tools here directly:
+`build.sh`. It is standalone; build rs2 tools here directly:
 
 ```bash
 ./build.sh              # build rs2 tools (runnable from anywhere)
@@ -20,7 +19,8 @@ There are no tests, linter, or formatter config in this tree.
 
 - `./msender <name[:type]> [name[:type] ...] [-d] [-q jpeg_quality] [-z zstd_level]`
   streams one RealSense pipeline per token. `:type` is `r`/`rgb` (default) or
-  `d`/`depth`. The full token is used as the ZMQ endpoint name.
+  `d`/`depth`. The suffix is a mode hint only; `name` is used as the ZMQ
+  endpoint.
 - `./mreceiver <name[:type]> [name[:type] ...]` views RGB, depth, or tact lidar
   streams. Decode hints: `:r`/`:rgb`, `:d`/`:depth`, `:l`/`:lidar`.
 - `./videorec [-d] [-s segment_seconds]` records one RGB camera to segmented
@@ -30,13 +30,14 @@ Legacy global `-D`/`-d` depth flags are rejected; use per-stream `:d`.
 
 ## Sharp Edges
 
-- Endpoint naming is asymmetric: `msender cam1:d` binds
-  `ipc:///dev/shm/cam1:d`, while `mreceiver cam1:d` connects to
-  `ipc:///dev/shm/cam1`. RGB with no suffix still pairs normally.
+- `msender` and `mreceiver` both parse `name[:type]` as endpoint `name` plus a
+  per-stream mode hint. `msender cam1:d` binds `ipc:///dev/shm/cam1`, and
+  `mreceiver cam1:d` connects to the same endpoint using depth decode.
 - `msender` maps logical names to physical cameras by sorted serials and sorted
-  full tokens, not command-line order. Physically swapping cameras can change
+  endpoint names, not command-line order. Physically swapping cameras can change
   assignment.
-- `cam1:r` and `cam1:d` are different tokens and require two cameras.
+- `cam1:r` and `cam1:d` conflict because they target the same endpoint with
+  different stream types.
 - Lidar is receiver-only here; the publisher is the shared `start` launcher
   (fg repo, backed by tact). The receiver
   expects fixed 320x240 raw float32 lidar frames.

@@ -3,9 +3,8 @@
 # ============================================================
 #  vive/ — Vive tracker + Manus teleop master
 # ============================================================
-# Split out of kida/build.sh. Runnable standalone (cd vive && ./build.sh) or
-# invoked by the top-level kida/build.sh. Resolves its own dir so the ../../
-# paths below (fgx/manus, fg/dev/manus) stay relative to kida's parent
+# Runnable standalone (cd vive && ./build.sh). Resolves its own dir so the
+# ../../ paths below (fgx/manus, fg/dev/manus) stay relative to kida's parent
 # regardless of the caller's CWD.
 
 cd "$(dirname "$0")"

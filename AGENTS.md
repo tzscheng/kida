@@ -11,14 +11,14 @@ This project provides:
 - `kida.py` — `agent` class for the full dual-arm (14 joints, `n_u=14`, `n_y=42`).
 - `single.py` — `agent` class for one arm + hand (`n_u=7`, `n_y=21`), used when running just the left or right side.
 - `kida-run` / `single-run` — executable runners (uv shebang) that replace the generic `fg/start`. Unlike `start`, these wire up an arm agent **plus** one or two hand agents (`h9` or `dg5f`) and concatenate the `u`/`y` vectors themselves.
-- `eio-kida.c` / `eio-single.c` → `eio/eio-kida.so` / `eio/eio-single.so` — C shared libs that drive the real arms over CAN (per-arm pthread on cores 1, 2) and the DG-5 hands over UDP (`127.0.0.1:6660` left, `:6661` right). `htype=1` forks `eio/eio-dg5f` (tracked binary); `htype=0` is H9-style hands handled inside the Python loop.
+- `eio/eio-kida.c` / `eio/eio-single.c` → `eio/eio-kida.so` / `eio/eio-single.so` — C shared libs that drive the real arms over CAN (per-arm pthread on cores 1, 2) and the DG-5 hands over UDP (`127.0.0.1:6660` left, `:6661` right). `htype=1` forks `eio/eio-dg5f` (tracked binary); `htype=0` is H9-style hands handled inside the Python loop.
 - `yaml/kida.yaml`, `yaml/kida-left.yaml`, `yaml/kida-right.yaml` — robot models for the dual arm and per-arm variants. Gripper YAMLs (`dg5f-*.yaml`, `h9-*.yaml`) are local files (h9 ones copied from `../fg/h9/yml/`).
 - `usrsample.py` — reference ZMQ client. `rcvpp.py` is a minimal proprio subscriber.
 
 ## Build / run
 
 ```bash
-./build.sh                                  # gcc → eio/eio-kida.so, eio/eio-single.so
+cd eio  && ./build.sh                       # gcc → eio/eio-kida.so, eio/eio-single.so
                                             # (uses local myactcan.h; -I.)
 cd rs2  && ./build.sh                        # rs2/{msender,mreceiver,videorec} (separate)
 cd vive && ./build.sh                        # vive/{vive-udp,vmaster} (separate; local retarget.h)
@@ -78,14 +78,14 @@ The `-b` flag is the single source of truth: it sets both eio's `cmode=1` (so th
 - `tact.Model.ik(...)` is called at construction for `home`, `q_d1..q_d4` — these depend on the gripper YAML being importable (the runner imports `h9` or `dg5f` based on `-g`).
 - For dual-arm IK, frames are always `{'tcp1':'6d', 'tcp2':'6d'}`. For single-arm it is `{'tcp':'6d'}`. Don't mix.
 - `single.py` uses `y_sign = +1` (left) / `-1` (right) to mirror task-space targets. The yml filename suffix (`-left` / `-right`) is what sets it — name yml files accordingly.
-- `eio-kida.c` is hard-coded for `kt = {1.4, 1.4, 1.3, 1.3, 1.3, 1.9, 1.9}` (joints 1–5 detuned because their current I-gain is zeroed) and for joint-direction sign vectors per arm. If you change either the motors or the YAML joint axes, both `kt` and `dir` need updating.
+- `eio/eio-kida.c` is hard-coded for `kt = {1.4, 1.4, 1.3, 1.3, 1.3, 1.9, 1.9}` (joints 1–5 detuned because their current I-gain is zeroed) and for joint-direction sign vectors per arm. If you change either the motors or the YAML joint axes, both `kt` and `dir` need updating.
 - The C `step()` busy-waits with `usleep(3000)` to target ~240 Hz. There is no separate clock; control rate is set by that sleep.
-- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`../pytact/extras/mjenv.so`, `chenv.so`) that exports `step`.
+- **`step` symbol collides with libc's System V regex API** (`char *step(const char *, const char *)` from `<regexp.h>`). ctypes `cdll.step` from Python still finds our `step()` via dlsym, but any *internal* `reset() -> step()` call in the .so goes through the PLT and was resolving to libc's `step()`, which then called `regexec(NULL, ...)` and segfaulted in `strlen(NULL)`. Worked around with `-Wl,-Bsymbolic-functions` in `eio/build.sh` — that flag makes intra-.so function calls bind to the .so's own definitions. If you add a new C backend or remove that linker flag, the bug will resurface. Long-term fix is to rename `step`/`reset`/`init`/`finish` to namespaced symbols (`eio_step` etc.) and update `tact.CEnv` to match; the same generic-name risk exists for any other backend (`../pytact/extras/mjenv.so`, `chenv.so`) that exports `step`.
 
 ## Subdirectories
 
-- `eio/` — built C shared libs and the `eio-dg5f` helper binary (tracked; a regular file, not a symlink).
-- `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built separately by its own `rs2/build.sh` (the root `build.sh` does not invoke it).
-- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh` (the root `build.sh` does not invoke it); needs ManusSDK (`../../fgx/manus`) and SteamVR.
+- `eio/` — C bridge sources, `myactcan.h`, `build.sh`, built shared libs, and the `eio-dg5f` helper binary (tracked; a regular file, not a symlink).
+- `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built separately by its own `rs2/build.sh`.
+- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh`; needs ManusSDK (`../../fgx/manus`) and SteamVR.
 - `yaml/` — kida-specific YAMLs plus gripper YAMLs (h9 ones are snapshot copies from `../fg/h9/yml/`).
 - `utils/` — temporary/experimental tools; contents change freely, don't rely on them.
