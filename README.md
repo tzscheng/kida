@@ -116,7 +116,7 @@ Dual-arm command는 comma로 arm, left hand, right hand 명령을 나눕니다.
 
 ```text
 init, home, home
-joint <arm 14 values>, <left hand 20 values>, <right hand 20 values>
+joint <arm 14 values>, <left hand values>, <right hand values>
 task <left tcp 6 values> <right tcp 6 values>, home, home
 rest
 quit
@@ -126,11 +126,13 @@ Single-arm command는 arm, hand 두 부분입니다.
 
 ```text
 init, home
-joint <arm 7 values>, <hand 20 values>
+joint <arm 7 values>, <hand values>
 task <tcp 6 values>, home
 rest
 quit
 ```
+
+Hand joint value 개수는 DG5F가 20개, H9가 9개입니다.
 
 대표 command:
 
@@ -148,7 +150,16 @@ quit
 
 ## Proprioception layout
 
-Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
+Proprioception 길이는 arm과 선택한 hand type에 따라 달라집니다.
+
+| 실행기 | gripper | 총 float32 개수 |
+|---|---|---:|
+| `kida-run` | DG5F (`-g 1`) | 162 |
+| `kida-run` | H9 (`-g 0`) | 78 |
+| `single-run` | DG5F (`-g 1`) | 81 |
+| `single-run` | H9 (`-g 0`) | 39 |
+
+Dual-arm `kida-run -g 1`의 proprioception layout은 다음과 같습니다.
 
 | 구간 | 개수 | 내용 |
 |---|---:|---|
@@ -173,6 +184,7 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 | `dg5f.py` | DG5F hand gripper agent |
 | `h9.py` | H9 hand agent (`../fg/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
+| `can-up` | CAN interface bitrate 설정 및 up helper |
 | `utils/start` | generic runner 복사본 |
 | `utils/zmqmsg`, `utils/udpmsg` | command 송신 helper |
 | `utils/rcvpp.py` | proprioception subscriber |
@@ -190,3 +202,26 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
 | `vive/` | Vive tracker + Manus teleop 도구 (`vmaster`, `logger`, `player`, `steamvr-run`, `calib/`, `tests/`) |
 | `pyproject.toml`, `uv.lock` | uv 환경 (`pytact` PyPI 패키지 포함) |
+
+## CPU affinity
+
+Kida 관련 실행기는 제어 주기 흔들림을 줄이기 위해 일부 프로세스/스레드를 특정 CPU에 고정합니다.
+
+| 대상 | CPU affinity | 위치 |
+|---|---|---|
+| `kida-run` Python 프로세스 | Linux CPU 0 | `os.sched_setaffinity(0, {0})` |
+| `single-run` Python 프로세스 | Linux CPU 0 | `os.sched_setaffinity(0, {0})` |
+| `eio/eio-kida.so` 왼팔 CAN pthread | Linux CPU 1 | `pthread_setaffinity_np`, `tid + 1` |
+| `eio/eio-kida.so` 오른팔 CAN pthread | Linux CPU 2 | `pthread_setaffinity_np`, `tid + 1` |
+| `eio/eio-single.so` | 별도 고정 없음 | runner 프로세스의 affinity를 따름 |
+| `eio/eio-dg5f` real-mode helper | 별도 고정 없음 | fork한 runner 프로세스의 affinity를 상속 |
+| `vive/steamvr-run`으로 시작/관리되는 Steam/SteamVR 계열 | 기본 Linux CPU 6-11 | `STEAMVR_CPUSET`으로 override 가능 |
+
+현재 개발 머신은 24 logical CPU 구성이고 SMT sibling은 `0/12`, `1/13`, `2/14`, ... 형태입니다. 따라서 `kida-run`의 CPU 0, dual-arm eio thread의 CPU 1/2를 보호하려면 SteamVR 같은 무거운 프로세스를 `0-2`와 sibling인 `12-14`에서 빼는 것이 좋습니다.
+
+`vive/steamvr-run`은 기본적으로 Steam/SteamVR 관련 프로세스를 `6-11`에 묶습니다. 다른 범위가 필요하면 실행 시 환경변수로 지정합니다.
+
+```bash
+cd vive
+STEAMVR_CPUSET=6-11 ./steamvr-run
+```

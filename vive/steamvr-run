@@ -1,1 +1,19 @@
+#!/bin/sh
+#
+# Start SteamVR and keep Steam/SteamVR processes away from the cores used by kida:
+# CPU 0 for kida-run/single-run, CPU 1/2 for eio arm threads, plus their SMT
+# siblings 12/13/14.
+
+CPUSET="${STEAMVR_CPUSET:-6-11}"
+
 steam steam://run/250820 &
+
+for _ in $(seq 1 80); do
+    pids="$(pgrep -f '(^|/)steam($| )|steamwebhelper|steam-runtime|steam-launch-wrapper|srt-bwrap|srt-logger|pv-adverb|reaper SteamLaunch|pressure-vessel|SteamVR/bin/linux64/vrserver|SteamVR/bin/linux64/vrmonitor|vrcompositor|vrwebhelper' || true)"
+    if [ -n "$pids" ]; then
+        for pid in $pids; do
+            taskset -cp "$CPUSET" "$pid" >/dev/null 2>&1 || true
+        done
+    fi
+    sleep 0.25
+done
