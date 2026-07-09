@@ -31,12 +31,12 @@ uv sync          # .venv 생성 (numpy, zmq, opencv, pytact(PyPI) 등)
 uv run python usrsample.py
 ```
 
-명령을 직접 보낼 때 (`zmqmsg`는 kida 로컬 복사본):
+명령을 직접 보낼 때 (`utils/zmqmsg`는 kida 로컬 복사본):
 
 ```bash
-./zmqmsg init, home, home
-./zmqmsg rest
-./zmqmsg quit
+./utils/zmqmsg init, home, home
+./utils/zmqmsg rest
+./utils/zmqmsg quit
 ```
 
 ## 실행 옵션
@@ -173,7 +173,10 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 | `dg5f.py` | DG5F hand gripper agent |
 | `h9.py` | H9 hand agent (`../fg/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
-| `utils/` | 임시/실험용 도구 모음 (내용은 수시로 바뀜) |
+| `utils/start` | generic runner 복사본 |
+| `utils/zmqmsg`, `utils/udpmsg` | command 송신 helper |
+| `utils/rcvpp.py` | proprioception subscriber |
+| `utils/tacplot.py`, `utils/tacview.py` | DG5F tactile viewer |
 | `yaml/kida.yaml` | Dual-arm robot model |
 | `yaml/kida-left.yaml`, `yaml/kida-right.yaml` | 좌/우 single-arm model |
 | `yaml/h9-left.yaml`, `yaml/h9-right.yaml` | H9 hand model (`../fg/h9/yml/` 복사본) |
