@@ -22,7 +22,7 @@
 
 #include "ManusSDK.h"
 #include "ManusSDKTypes.h"
-#include "openvr.h"
+#include "openvr/openvr.h"
 #include "retarget.h"
 
 #include <zmq.h>

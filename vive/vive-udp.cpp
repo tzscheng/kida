@@ -15,7 +15,7 @@
 // Defaults: poll 100 Hz, send to 127.0.0.1:6634.
 // Override poll period (ms) with -tN.
 
-#include "openvr.h"
+#include "openvr/openvr.h"
 
 #include <atomic>
 #include <chrono>
