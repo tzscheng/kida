@@ -4,9 +4,9 @@ import sys, os, tty, termios, select, argparse, time, atexit, numpy as np
 import subprocess, zmq
 import triad_openvr, tact
 
-# pymanus.so is built into ../../fgx/manus by fg's dev/manus build (next to the
+# pymanus.so is built into ../../../fgx/manus by fg's dev/manus build (next to the
 # Manus SDK it links against); make it importable regardless of cwd.
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'fgx', 'manus'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'fgx', 'manus'))
 import pymanus
 
 def parse_args():
@@ -50,7 +50,7 @@ if arg.g >= 0:
     # SDK diagnostics.
     sys.stdout.flush(); sys.stderr.flush()
     _log_path = os.environ.get('PYMANUS_LOG',
-                               os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'fg', 'dev', 'manus', 'pymanus.log'))
+                               os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'fg', 'dev', 'manus', 'pymanus.log'))
     sys.stdout = os.fdopen(os.dup(1), 'w', buffering=1)
     sys.stderr = os.fdopen(os.dup(2), 'w', buffering=1)
     _log_fd = os.open(_log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)

@@ -15,7 +15,7 @@ cd eio && ./build.sh   # eio/ hardware bridge (rs2/·vive/는 각 폴더에서 �
 
 - **eio** — `eio/eio-kida.c`/`eio/eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`는 DGSDK가 설치된 머신에서만 재빌드됩니다. → `cd eio && ./build.sh`
 - **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`). → `cd rs2 && ./build.sh`
-- **vive** — Vive tracker + Manus teleop (`vive/vive-udp`, `vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
+- **vive** — Vive tracker + Manus teleop (`vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
 
 ## 실행
 
@@ -90,7 +90,7 @@ DG5F hand를 사용할 때는 `kida-run -x` 또는 `single-run -x`가 `eio/eio-d
 rs2/msender
 ```
 
-Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr.sh`, `vive/vmaster`, `vive/logger`, `vive/player`, `vive/calib/`을 사용합니다. 필요한 경우 해당 센서 프로세스를 별도 터미널에서 실행합니다.
+Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr-run`, `vive/vmaster`, `vive/logger`, `vive/player`, `vive/calib/`을 사용합니다. 필요한 경우 해당 센서 프로세스를 별도 터미널에서 실행합니다.
 
 종료 후 CAN interface를 내릴 때는 `sudo ip link set can<N> down`을 사용합니다.
 
@@ -188,5 +188,5 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 | `eio/eio-kida.so`, `eio/eio-single.so` | 실제 dual/single-arm backend shared library |
 | `eio/eio-dg5f` | DG5F hand hardware bridge |
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
-| `vive/` | Vive tracker + Manus teleop 도구 (`vive-udp`, `vmaster`, `logger`, `player`, `steamvr.sh`, `calib/`) |
+| `vive/` | Vive tracker + Manus teleop 도구 (`vmaster`, `logger`, `player`, `steamvr-run`, `calib/`, `tests/`) |
 | `pyproject.toml`, `uv.lock` | uv 환경 (`pytact` PyPI 패키지 포함) |

@@ -12,12 +12,6 @@ cd "$(dirname "$0")"
 MANUS_DIR="../../fgx/manus/ManusSDK"
 OPENVR_LIB_DIR="${OPENVR_LIB_DIR:-$HOME/.local/share/Steam/steamapps/common/SteamVR/bin/linux64}"
 
-#vive tracker -> UDP 6D pose streamer
-g++ -O2 -g -std=c++17 -W -Wall -o vive-udp vive-udp.cpp \
-    -I. \
-    -L"$OPENVR_LIB_DIR" -lopenvr_api -Wl,-rpath,"$OPENVR_LIB_DIR" \
-    -pthread
-
 #vive + manus teleop master (zmq PUSH to slave/logger)
 g++ -O2 -g -std=c++17 -W -Wall -o vmaster vmaster.cpp \
     -I"$MANUS_DIR/include" -I. \

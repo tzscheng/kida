@@ -1077,7 +1077,7 @@ int main(int argc, char** argv)
             // eTrackingResult is Running_OutOfRange (= base stations lost
             // sight, position is IMU-extrapolated and can drift by tens of
             // cm) or Fallback_RotationOnly. Letting those through caused
-            // the cm-scale +x "snap" the user observed. vive-udp.cpp filters
+            // the cm-scale +x "snap" the user observed. ~/ongoing/dev/vive/vive-udp.cpp filters
             // identically.
             if (!tp.bDeviceIsConnected || !tp.bPoseIsValid)        continue;
             if (tp.eTrackingResult != vr::TrackingResult_Running_OK) continue;

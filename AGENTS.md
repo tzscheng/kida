@@ -21,7 +21,7 @@ This project provides:
 cd eio  && ./build.sh                       # gcc → eio/eio-kida.so, eio/eio-single.so
                                             # (uses local myactcan.h; -I.)
 cd rs2  && ./build.sh                        # rs2/{msender,mreceiver,videorec} (separate)
-cd vive && ./build.sh                        # vive/{vive-udp,vmaster} (separate; local retarget.h)
+cd vive && ./build.sh                        # vive/vmaster (separate; local retarget.h)
 ```
 
 Dual-arm:
@@ -86,6 +86,6 @@ The `-b` flag is the single source of truth: it sets both eio's `cmode=1` (so th
 
 - `eio/` — C bridge sources, `myactcan.h`, `build.sh`, built shared libs, and the `eio-dg5f` helper binary (tracked; a regular file, not a symlink).
 - `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built separately by its own `rs2/build.sh`.
-- `vive/` — Vive tracker + Manus teleop master (`vive-udp`/`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh`; needs ManusSDK (`../../fgx/manus`) and SteamVR.
+- `vive/` — Vive tracker + Manus teleop master (`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh`; needs ManusSDK (`../../fgx/manus`) and SteamVR. Legacy/test helpers live in `vive/tests/`.
 - `yaml/` — kida-specific YAMLs plus gripper YAMLs (h9 ones are snapshot copies from `../fg/h9/yml/`).
 - `utils/` — temporary/experimental tools; contents change freely, don't rely on them.
