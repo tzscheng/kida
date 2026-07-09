@@ -8,15 +8,13 @@ No Make/CMake. This dir's own `build.sh` is standalone. It builds:
 
 - `vmaster` from `vmaster.cpp`
 
-(`../../../fgx/manus/pymanus.cpython-*.so`, used by `tests/vmaster.py`, is NOT built here — it is built by fg's `dev/manus` build from `pymanus.cpp`.)
-
 ```bash
 ./build.sh              # build vive tools here directly (runnable from anywhere)
 ```
 
 OpenVR is resolved through `OPENVR_LIB_DIR` (default SteamVR path). Manus SDK is
-resolved from `../../fgx/manus/ManusSDK`. Both are baked into rpaths; rebuild
-after moving dependencies. There are no tests, linter, or formatter config.
+resolved from `../../ManusSDK/3.0.1` (i.e. `~/ManusSDK/3.0.1`, outside the
+repo). Both are baked into rpaths; rebuild after moving dependencies. There are no tests, linter, or formatter config.
 
 ## Run
 
@@ -27,8 +25,9 @@ SteamVR must already be running.
 - `./vmaster -tN [-gN] [-l] [-n]`: C++ teleop master. `-t`: 0=kida-left,
   1=kida-right, 2=kida-both, 5=gos10. `-g`: 0=H9, 1=DG5F. `-l` spawns
   `./logger`; `-n` skips Manus glove calibration.
-- `./tests/vmaster.py -tN [-gN] ...`: Python sibling of `vmaster`; imports
-  `pymanus` from `../../../fgx/manus/`.
+
+(The Python sibling `tests/vmaster.py` and its `pymanus` module were retired to
+`~/Desktop/manus-backup/`.)
 
 Hot keys in `vmaster`: `/` randomize, `r` rest, `a` toggle attached, `h` home,
 `i` init+home, `c` toggle log, `z`/`x` jaw, `q`/ESC quit.

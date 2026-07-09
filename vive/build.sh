@@ -4,12 +4,12 @@
 #  vive/ — Vive tracker + Manus teleop master
 # ============================================================
 # Runnable standalone (cd vive && ./build.sh). Resolves its own dir so the
-# ../../ paths below (fgx/manus, fg/dev/manus) stay relative to kida's parent
-# regardless of the caller's CWD.
+# ../../ paths below (ManusSDK) stay relative to kida's parent regardless of
+# the caller's CWD.
 
 cd "$(dirname "$0")"
 
-MANUS_DIR="../../fgx/manus/ManusSDK"
+MANUS_DIR="../../ManusSDK/3.0.1"
 OPENVR_LIB_DIR="${OPENVR_LIB_DIR:-$HOME/.local/share/Steam/steamapps/common/SteamVR/bin/linux64}"
 
 #vive + manus teleop master (zmq PUSH to slave/logger)

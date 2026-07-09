@@ -67,9 +67,8 @@ relevant slice length is 9 for H9 and 20 for DG5F.
 Calibration files live in the local `calib/` copy (originals in `../../fg/dev/manus/calib/`). The Manus thread waits until both
 glove IDs are known, then uploads calibration once. `-n` skips this.
 
-`tests/vmaster.py` uses `../../../fgx/manus/pymanus` (built by fg's `dev/manus`), which
-mirrors the Manus section of `vmaster.cpp` and reuses the local `retarget.h`
-(vendored from fg `dev/manus`).
+(The Python sibling `tests/vmaster.py` and the `pymanus` pybind11 module it
+imported were retired to `~/Desktop/manus-backup/`.)
 
 ## ncurses UI
 
