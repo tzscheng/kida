@@ -37,9 +37,6 @@ dist/
 *.pid
 *.json
 
-# ── archive/scratch 디렉터리 ──
-**/_/
-
 # ── Agent/assistant 로컬 메타데이터 ──
 .agents/
 .codex/

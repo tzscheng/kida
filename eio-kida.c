@@ -143,19 +143,19 @@ void init(const char* args) {
 
 	pid_t pid = fork();
 	if(pid == 0){
-	    execl("eio/eio-dg5", "eio-dg5", "-t0", "-r", NULL);
+	    execl("eio/eio-dg5f", "eio-dg5f", "-t0", "-r", NULL);
 	    perror("exec1"); //<-- should never reach here
 	    exit(0);
 	}
 
 	pid = fork();
 	if(pid == 0){
-	    execl("eio/eio-dg5", "eio-dg5", "-t1", "-r", NULL);
+	    execl("eio/eio-dg5f", "eio-dg5f", "-t1", "-r", NULL);
 	    perror("exec2"); //<-- should never reach here
 	    exit(0);
 	}
 
-	//wait until dg5 is fulley ready
+	//wait until dg5f is fulley ready
 	usleep(2000000);
     }
     
@@ -181,7 +181,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
     //   q_ref  = position rad (arm_task reads when cmode==1 or 2; hands always read it)
     //   qd_ref = velocity rad/s (arm_task reads when cmode==2)
     // The dg5f hands are intrinsically position-controlled, so their position targets
-    // come from q_ref regardless of arm cmode. (The UDP+fork relay is a dg5-specific
+    // come from q_ref regardless of arm cmode. (The UDP+fork relay is a dg5f-specific
     // quirk kept local to this file.) NULL inputs fall back to zero arrays so the
     // controllers can leave a channel "inactive" (e.g. before the first 'init'/'home'
     // command) without us crashing the firmware path that needs a real pointer.

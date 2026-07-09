@@ -13,7 +13,7 @@ uv sync          # .venv 생성 (numpy, zmq, opencv, pytact(PyPI) 등)
 
 루트 `build.sh`는 **eio만** 빌드합니다. **rs2**·**vive**는 각 폴더의 별도 `build.sh`로 **따로** 빌드합니다 (루트 `build.sh`는 이들을 호출하지 않음):
 
-- **eio** — `eio-kida.c`/`eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5`는 DGSDK가 설치된 머신에서만 재빌드됩니다. (루트 `build.sh`)
+- **eio** — `eio-kida.c`/`eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`는 DGSDK가 설치된 머신에서만 재빌드됩니다. (루트 `build.sh`)
 - **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`). → `cd rs2 && ./build.sh`
 - **vive** — Vive tracker + Manus teleop (`vive/vive-udp`, `vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
 
@@ -44,10 +44,10 @@ uv run python usrsample.py
 Dual-arm:
 
 ```bash
-./kida-run                 # DG5 hand 시뮬레이터
+./kida-run                 # DG5F hand 시뮬레이터
 ./kida-run -g 0            # H9 hand 시뮬레이터
-./kida-run -g 1 -l         # DG5 hand headless 시뮬레이터
-./kida-run -g 1 -x         # 실제 KIDA + DG5 hand
+./kida-run -g 1 -l         # DG5F hand headless 시뮬레이터
+./kida-run -g 1 -x         # 실제 KIDA + DG5F hand
 ./kida-run -g 1 -x -b      # 실제 KIDA, actuator built-in position controller 사용
 ./kida-run -g 1 -v         # TCP pose verbose 출력
 ```
@@ -55,10 +55,10 @@ Dual-arm:
 Single-arm:
 
 ```bash
-./single-run -t 0 -g 1     # left arm + DG5 hand 시뮬레이터
-./single-run -t 1 -g 1     # right arm + DG5 hand 시뮬레이터
+./single-run -t 0 -g 1     # left arm + DG5F hand 시뮬레이터
+./single-run -t 1 -g 1     # right arm + DG5F hand 시뮬레이터
 ./single-run -t 0 -g 0 -x  # left arm + H9 hand 실제 하드웨어
-./single-run -t 1 -g 1 -x  # right arm + DG5 hand 실제 하드웨어
+./single-run -t 1 -g 1 -x  # right arm + DG5F hand 실제 하드웨어
 ```
 
 공통 옵션:
@@ -66,7 +66,7 @@ Single-arm:
 | 옵션 | 의미 |
 |---|---|
 | `-g 0` | H9 hand |
-| `-g 1` | DG5 hand |
+| `-g 1` | DG5F hand |
 | `-x` | 실제 하드웨어 backend 사용 |
 | `-b` | 실제 하드웨어에서 actuator built-in PD/position mode 사용 |
 | `-l` | 시뮬레이터 rendering window 없이 실행 |
@@ -84,7 +84,7 @@ CAN interface를 먼저 올립니다 (helper는 kida 로컬 `can-up`). 장치명
 ./can-up 1
 ```
 
-DG5 hand를 사용할 때는 `kida-run -x` 또는 `single-run -x`가 `eio/eio-dg5`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
+DG5F hand를 사용할 때는 `kida-run -x` 또는 `single-run -x`가 `eio/eio-dg5f`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
 
 ```bash
 rs2/msender
@@ -170,18 +170,18 @@ Dual-arm `kida-run`의 proprioception은 총 162개 `float32`입니다.
 |---|---|
 | `kida-run`, `kida.py` | Dual-arm 실행기와 controller |
 | `single-run`, `single.py` | 좌/우 한쪽 arm + hand 실행기와 controller |
-| `dg5.py` | DG5 hand gripper agent |
-| `h9.py` | H9 hand agent (`../fg/h9/h9.py` 복사본) |
+| `dg5f.py` | DG5F hand gripper agent |
+| `h9.py` | H9 hand agent (`../fg/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
-| `etc/` | 임시/실험용 도구 모음 (내용은 수시로 바뀜) |
-| `yml/kida.yml` | Dual-arm robot model |
-| `yml/kida-left.yml`, `yml/kida-right.yml` | 좌/우 single-arm model |
-| `yml/h9-left.yml`, `yml/h9-right.yml` | H9 hand model (`../fg/h9/yml/` 복사본) |
-| `yml/dg5-left.yml`, `yml/dg5-right.yml` | DG5 hand model |
-| `yml/desk1.yml` | 시뮬레이션 desk scene |
-| `eio-kida.c`, `eio-single.c`, `eio-dg5.c` | hardware bridge 소스 |
+| `utils/` | 임시/실험용 도구 모음 (내용은 수시로 바뀜) |
+| `yaml/kida.yaml` | Dual-arm robot model |
+| `yaml/kida-left.yaml`, `yaml/kida-right.yaml` | 좌/우 single-arm model |
+| `yaml/h9-left.yaml`, `yaml/h9-right.yaml` | H9 hand model (`../fg/h9/yml/` 복사본) |
+| `yaml/dg5f-left.yaml`, `yaml/dg5f-right.yaml` | DG5F hand model |
+| `yaml/desk1.yaml` | 시뮬레이션 desk scene |
+| `eio-kida.c`, `eio-single.c`, `eio-dg5f.c` | hardware bridge 소스 |
 | `eio/eio-kida.so`, `eio/eio-single.so` | 실제 dual/single-arm backend shared library |
-| `eio/eio-dg5` | DG5 hand hardware bridge |
+| `eio/eio-dg5f` | DG5F hand hardware bridge |
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
 | `vive/` | Vive tracker + Manus teleop 도구 (`vive-udp`, `vmaster`, `logger`, `player`, `steamvr.sh`, `calib/`) |
 | `build.sh` | eio 빌드 스크립트 (rs2/·vive/는 각 폴더의 `build.sh`에서 별도 빌드) |

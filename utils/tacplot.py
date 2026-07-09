@@ -82,10 +82,10 @@ def capsule_wire(ax, center, radius, hh):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Live matplotlib view for KIDA DG5 fingertip tactile sensor.")
+    ap = argparse.ArgumentParser(description="Live matplotlib view for KIDA DG5F fingertip tactile sensor.")
     ap.add_argument("--names", nargs="+", default=DEFAULT_NAMES,
                     help="tactile IPC names to subscribe")
-    ap.add_argument("--yml", default=str(Path(__file__).resolve().parent / "yml" / "dg5-left.yml"),
+    ap.add_argument("--yml", default=str(Path(__file__).resolve().parent.parent / "yaml" / "dg5f-left.yaml"),
                     help="YAML file containing the unprefixed tactile geometry")
     ap.add_argument("--sensor", default="index_fingertip_taxel",
                     help="unprefixed tactile sensor name in --yml")
@@ -113,7 +113,7 @@ def main():
     fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(121, projection="3d")
     ax2 = fig.add_subplot(122)
-    fig.canvas.manager.set_window_title("KIDA DG5 tactile plot viewer")
+    fig.canvas.manager.set_window_title("KIDA DG5F tactile plot viewer")
 
     capsule_wire(ax, center, radius, hh)
     scat = ax.scatter(pos[:, 0], pos[:, 1], pos[:, 2], c=np.zeros(ntaxel),

@@ -371,8 +371,8 @@ void RetargetAll(int g, float* q)
         if (haveL) RetargetSide_h9(L, q);
         if (haveR) RetargetSide_h9(R, q + 20);
     } else if (g == 1) {
-        if (haveL) RetargetSide_dg5('L', L, q);
-        if (haveR) RetargetSide_dg5('R', R, q + 20);
+        if (haveL) RetargetSide_dg5f('L', L, q);
+        if (haveR) RetargetSide_dg5f('R', R, q + 20);
     }
 }
 

@@ -6,7 +6,7 @@ class Controller:
 
     def __init__(self, env, ymlname, prefix='', rate=None, verbose=False):
         self.has_pd = env.has_pd
-        # Real-HW override: dg5 (dg5f hand) is intrinsically position-controlled — its
+        # Real-HW override: dg5f (dg5f hand) is intrinsically position-controlled — its
         # firmware always runs onboard PD on the q_ref it receives. The hand always
         # emits q_ref regardless of the arm's mode.
         if env.backend == 'real': self.has_pd = True

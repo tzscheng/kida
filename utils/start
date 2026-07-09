@@ -49,7 +49,8 @@ sys.path.insert(0, os.path.abspath(os.getcwd()))
 mod = importlib.import_module(src[0])
 
 ymlname = src[0] if arg.y == None else arg.y
-if not os.path.exists(ymlname + '.yml'): ymlname = 'yml/' + ymlname
+if not (os.path.exists(ymlname + '.yaml') or os.path.exists(ymlname + '.yml')):
+    ymlname = 'yaml/' + ymlname
 
 if arg.m:
     # robot model xml is named after the controller module and lives next to it
@@ -101,8 +102,10 @@ else:
     else:     env = tact.Env(ymlname, offset=arg.o, render=True, redraw=arg.t) #GUI mode
     
     if arg.e != None:
-        if os.path.exists('%s.yml' %arg.e): env.add('%s' %arg.e)
-        elif os.path.exists('yml/%s.yml' %arg.e): env.add('yml/%s' %arg.e)
+        if os.path.exists('%s.yaml' %arg.e): env.add('%s' %arg.e)
+        elif os.path.exists('%s.yml' %arg.e): env.add('%s' %arg.e)
+        elif os.path.exists('yaml/%s.yaml' %arg.e): env.add('yaml/%s' %arg.e)
+        elif os.path.exists('yaml/%s.yml' %arg.e): env.add('yaml/%s' %arg.e)
         elif os.path.exists(f'{EXTRAS_ROOT}/envs/{arg.e}.yml'): env.add(f'{EXTRAS_ROOT}/envs/{arg.e}')
         elif os.path.exists(f'{tact.pkg_dir}/demos/{arg.e}.yml'): env.add(f'{tact.pkg_dir}/demos/{arg.e}')
         else:
@@ -110,7 +113,7 @@ else:
             for root in (f'{EXTRAS_ROOT}/envs', f'{tact.pkg_dir}/demos'):
                 for dirpath, _, _ in os.walk(root):
                     path = os.path.join(dirpath, arg.e)
-                    if os.path.exists(path + '.yml'):
+                    if os.path.exists(path + '.yaml') or os.path.exists(path + '.yml'):
                         found = path
                         break
                 if found: break

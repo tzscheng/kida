@@ -74,7 +74,7 @@ def grid_lines(name, values, rows, cols, vmax):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Live terminal heatmap for KIDA DG5 fingertip tactile sensor.")
+    ap = argparse.ArgumentParser(description="Live terminal heatmap for KIDA DG5F fingertip tactile sensor.")
     ap.add_argument(
         "--names",
         nargs="+",
@@ -134,7 +134,7 @@ def main():
             vmax = args.vmax if args.vmax > 0 else max(frame_max, 1e-6)
 
             lines = [
-                "KIDA DG5 index fingertip tactile viewer  (Ctrl-C to exit)",
+                "KIDA DG5F index fingertip tactile viewer  (Ctrl-C to exit)",
                 f"sockets: {', '.join(args.names)}",
                 f"shape: {rows}x{cols}   color max: {vmax:.3f}   payload: float32 ({ntaxel},1)",
                 "",

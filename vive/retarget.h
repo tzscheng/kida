@@ -24,7 +24,7 @@ inline void RetargetSide_h9(const float _q[20], float* q)
 }
 
 // DG5F - 20 dof, side-dependent ('L' or 'R'). Writes 20 floats to `q`.
-inline void RetargetSide_dg5(char side, const float _q[20], float* q)
+inline void RetargetSide_dg5f(char side, const float _q[20], float* q)
 {
     if (side == 'L') {
         q[0]  =  1.6f * _q[1]  - 1.5f;

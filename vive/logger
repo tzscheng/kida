@@ -6,7 +6,7 @@ import zmq
 def parse_args():
     par = argparse.ArgumentParser()
     par.add_argument('-t', default=-1, type=int, help='operation  type: [0]kida-left, [1]kida-right, [2]kida,  [5]gos10')
-    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5]')
+    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5f]')
     return par.parse_args()
 
 def hdf5_write_task(data_queue:queue.Queue):

@@ -14,12 +14,12 @@ gcc eio-kida.c -W -Wall -shared -o eio/eio-kida.so -fPIC -I. -Wl,-Bsymbolic-func
 
 gcc eio-single.c -W -Wall -shared -o eio/eio-single.so -fPIC  -I. -Wl,-Bsymbolic-functions
 
-#dg5 — needs the DGSDK installed under /usr/local; skipped (keeping the tracked
-#      eio/eio-dg5 binary) on machines without it
+#dg5f — needs the DGSDK installed under /usr/local; skipped (keeping the tracked
+#      eio/eio-dg5f binary) on machines without it
 if [ -d /usr/local/include/DGSDK ]; then
-    gcc -W -Wall -o eio/eio-dg5 eio-dg5.c -I/usr/local/include/DGSDK -lDGSDK
+    gcc -W -Wall -o eio/eio-dg5f eio-dg5f.c -I/usr/local/include/DGSDK -lDGSDK
 else
-    echo "dg5: DGSDK not found — skipping eio-dg5 build"
+    echo "dg5f: DGSDK not found — skipping eio-dg5f build"
 fi
 
 # rs2/ (RealSense multicam) and vive/ (Vive + Manus teleop) are built
