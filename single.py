@@ -45,8 +45,8 @@ class Controller:
         self.trj2 = tact.MovingAverageWaypointSmoother(5) #task space traj generator
 
         #self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]) #spring stiffness
-        self.sk = np.array([0, 0, 2.0, 0, 0, 0, 0]) #spring stiffness
-        self.rq = np.array([0, 0, -0.2, 0, 0, 0, 0]) #reference - q
+        self.sk = np.array([0, 0, 2.5, 0, 0, 0, 0]) #spring stiffness
+        self.rq = np.array([0, 0, -0.1, 0, 0, 0, 0]) #reference - q
         
         self.joint_err_w = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.3, 0.3]) #joint error weight
         self.task_err_w = np.array([1.0, 1.0, 1.0, 0.2, 0.2, 0.2]) #task error weight

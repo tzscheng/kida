@@ -469,7 +469,7 @@ bool InitUi()
 
     int hStatus = 3;
     int hVive   = 4;
-    int hManus  = 10;
+    int hManus  = 11;
     int hLog    = rows - hStatus - hVive - hManus;
     if (hLog < 3) {
         hStatus = 3;
@@ -552,15 +552,15 @@ void DrawVive(int t, double xyz[2][3], double rpy[2][3], double rpy_raw[2][3], d
 
 void DrawManusSide(int row, const char* label, const float* qs, int n)
 {
-    // DG5F (n=20): 12 on first row, 8 on second row, grouped by 4 with extra spacing.
+    // DG5F (n=20): 8, 8, 4 across three rows, grouped by 4 with extra spacing.
     // H9 (n=9): original 10-per-row layout, tight spacing.
     mvwprintw(g_winManus, row, 2, "%s", label);
     const bool wide = (n > 10);
     for (int i = 0; i < n; ++i) {
         int r, c;
         if (wide) {
-            const int rowIdx = (i < 12) ? 0 : 1;
-            const int colIdx = (i < 12) ? i : (i - 12);
+            const int rowIdx = i / 8;
+            const int colIdx = i % 8;
             r = row + 1 + rowIdx;
             c = 2 + colIdx * 8 + (colIdx / 4) * 2;
         } else {
@@ -579,7 +579,7 @@ void DrawManus(int t, int n_joint, const float* q)
     } else if (t == 0 || t == 1) {
         DrawManusSide(1, t == 0 ? "L-HAND:" : "R-HAND:", q + 20 * t, n_joint);
     } else if (t == 2) {
-        const int valRows = (n_joint > 10) ? ((n_joint <= 12) ? 1 : 2) : ((n_joint + 9) / 10);
+        const int valRows = (n_joint > 10) ? ((n_joint + 7) / 8) : ((n_joint + 9) / 10);
         DrawManusSide(1, "L-HAND:", q,      n_joint);
         DrawManusSide(1 + 1 + valRows + 1, "R-HAND:", q + 20, n_joint);
     }
@@ -936,12 +936,12 @@ int main(int argc, char** argv)
     Mat3 R_bias[2]  = {Mat3Identity(), Mat3Identity()};
     Mat3 R_out[2]   = {Mat3Identity(), Mat3Identity()};
     if (arg.t == 0) {
-        bias[0][0] = 0.30; bias[0][1] =  0.23; bias[0][2] = -0.40; scale[0] = 1.2;
+        bias[0][0] = 0.30; bias[0][1] =  0.23; bias[0][2] = -0.40; scale[0] = 1.0;
     } else if (arg.t == 1) {
-        bias[1][0] = 0.30; bias[1][1] = -0.23; bias[1][2] = -0.40; scale[1] = 1.2;
+        bias[1][0] = 0.30; bias[1][1] = -0.23; bias[1][2] = -0.40; scale[1] = 1.0;
     } else if (arg.t == 2) {
-        bias[0][0] = 0.30; bias[0][1] =  0.23; bias[0][2] = -0.40; scale[0] = 1.2;
-        bias[1][0] = 0.30; bias[1][1] = -0.23; bias[1][2] = -0.40; scale[1] = 1.2;
+        bias[0][0] = 0.30; bias[0][1] =  0.23; bias[0][2] = -0.40; scale[0] = 1.0;
+        bias[1][0] = 0.30; bias[1][1] = -0.23; bias[1][2] = -0.40; scale[1] = 1.0;
     } else if (arg.t == 5) {
         bias[0][0] = 0.50; bias[0][1] = -0.15; bias[0][2] =  0.30; scale[0] = 2.0;
     }

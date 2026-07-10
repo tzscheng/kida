@@ -39,8 +39,8 @@ class Controller:
         self.kd = kd
         self.trj1 = tact.MovingAverageWaypointSmoother(10) #joint space trajectory
 
-        Kp = np.array([600, 600, 600, 12, 12, 12]*2, dtype=float)
-        Kd = np.array([10, 10, 10, 0.12, 0.12, 0.12]*2, dtype=float)
+        Kp = np.array([600, 600, 600, 10, 10, 10]*2, dtype=float)
+        Kd = np.array([10, 10, 10, 0.10, 0.10, 0.10]*2, dtype=float)
         #Kp = np.array([1500, 1500, 1500, 60, 60, 60]*2, dtype=float) # claude guide
         #Kd = np.array([80, 80, 80, 2.0, 2.0, 2.0]*2, dtype=float)
         self.jtc = tact.JacobianTransposeController(self.m, {'tcp1':'6d', 'tcp2':'6d'}, Kp, Kd)
@@ -48,8 +48,8 @@ class Controller:
         self.task_Kd = Kd
         self.trj2 = tact.MovingAverageWaypointSmoother(5) #task space trajectory
 
-        self.sk = np.array([0, 0, 10.0, 0, 0, 0, 0]*2) #spring stiffness
-        self.rq = np.array([0, 0, -0.2, 0, 0, 0, 0]*2) #reference - q
+        self.sk = np.array([0, 0, 2.5, 0, 0, 0, 0]*2) #spring stiffness
+        self.rq = np.array([0, 0, -0.1, 0, 0, 0, 0]*2) #reference - q
 
         self.joint_err_w = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.3, 0.3]*2) #joint error weight
         self.task_err_w = np.array([1.0, 1.0, 1.0, 0.2, 0.2, 0.2]*2) #task error weight
