@@ -17,10 +17,11 @@ There are no tests, linter, or formatter config in this tree.
 
 ## Run
 
-- `./msender <name[:type]> [name[:type] ...] [-d] [-q jpeg_quality] [-z zstd_level]`
+- `./msender <name[:type]> [name[:type] ...] [-d] [-a cpu-list] [-q jpeg_quality] [-z zstd_level]`
   streams one RealSense pipeline per token. `:type` is `r`/`rgb` (default) or
   `d`/`depth`. The suffix is a mode hint only; `name` is used as the ZMQ
-  endpoint.
+  endpoint. By default, the sender pins itself to CPUs `3-5` before camera
+  worker threads are launched; override with `-a 3,4,5` or another CPU list.
 - `./mreceiver <name[:type]> [name[:type] ...]` views RGB, depth, or tact lidar
   streams. Decode hints: `:r`/`:rgb`, `:d`/`:depth`, `:l`/`:lidar`.
 - `./videorec [-d] [-s segment_seconds]` records one RGB camera to segmented

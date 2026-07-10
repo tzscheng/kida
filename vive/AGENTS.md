@@ -25,6 +25,8 @@ SteamVR must already be running.
 - `./vmaster -tN [-gN] [-l] [-n]`: C++ teleop master. `-t`: 0=kida-left,
   1=kida-right, 2=kida-both, 5=gos10. `-g`: 0=H9, 1=DG5F. `-l` spawns
   `./logger`; `-n` skips Manus glove calibration.
+- `./logger -tN [-gN] [-a cpu-list]` records HDF5 episodes and pins itself to
+  CPUs `6-8` by default. Override with `-a 6,7,8` or another CPU list.
 
 (The Python sibling `tests/vmaster.py` and its `pymanus` module were retired to
 `~/Desktop/manus-backup/`.)

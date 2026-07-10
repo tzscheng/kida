@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <cerrno>
+#include <sched.h>
 
 #include <librealsense2/rs.hpp>
 #include <opencv2/opencv.hpp>
@@ -66,6 +67,7 @@ void print_usage(const char* cmd)
     printf("                     'd'/'depth', or omitted (= rgb). The hint is stripped from\n");
     printf("                     the endpoint name, so 'cam1:d' binds ipc:///dev/shm/cam1.\n");
     printf("   -d                Enable display window (default: OFF)\n");
+    printf("   -a <cpu-list>     Pin process to CPUs (default: 3-5), e.g. 3,4,5\n");
     printf("   -q <jpeg quality> JPEG quality, RGB streams only (default: 80)\n");
     printf("   -z <zstd level>   ZSTD level, depth streams only (default: 1)\n");
     printf("\n");
@@ -77,6 +79,67 @@ void print_usage(const char* cmd)
     printf("   %s cam1:r cam2:d cam0   # cam0 + cam1 → RGB, cam2 → depth\n", cmd);
     printf("   %s top side             # both RGB (no hint = rgb)\n", cmd);
     printf("   %s top:d side:d         # both depth\n", cmd);
+}
+
+bool add_cpu_range(cpu_set_t* set, const std::string& token)
+{
+    if(token.empty()) return false;
+
+    auto parse_cpu = [](const std::string& s, int* out) -> bool {
+        if(s.empty()) return false;
+        char* end = nullptr;
+        errno = 0;
+        long v = std::strtol(s.c_str(), &end, 10);
+        if(errno != 0 || end == s.c_str() || *end != '\0') return false;
+        if(v < 0 || v >= CPU_SETSIZE) return false;
+        *out = (int)v;
+        return true;
+    };
+
+    int first = -1;
+    int last = -1;
+    auto dash = token.find('-');
+    if(dash == std::string::npos)
+    {
+        if(!parse_cpu(token, &first)) return false;
+        last = first;
+    }
+    else
+    {
+        if(!parse_cpu(token.substr(0, dash), &first)) return false;
+        if(!parse_cpu(token.substr(dash + 1), &last)) return false;
+        if(last < first) return false;
+    }
+
+    for(int cpu = first; cpu <= last; cpu++) CPU_SET(cpu, set);
+    return true;
+}
+
+bool apply_cpu_affinity(const std::string& spec)
+{
+    cpu_set_t set;
+    CPU_ZERO(&set);
+
+    size_t pos = 0;
+    bool any = false;
+    while(pos <= spec.size())
+    {
+        size_t comma = spec.find(',', pos);
+        std::string token = spec.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+        if(!add_cpu_range(&set, token)) return false;
+        any = true;
+        if(comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+
+    if(!any || sched_setaffinity(0, sizeof(set), &set) != 0)
+    {
+        std::cerr << "sched_setaffinity(" << spec << ") failed: " << std::strerror(errno) << std::endl;
+        return false;
+    }
+
+    std::cout << "CPU affinity: " << spec << std::endl;
+    return true;
 }
 
 void signal_handler(int)
@@ -580,6 +643,7 @@ int main(int argc, char *argv[])
 
     int jpeg_quality = 80;
     int zstd_level = 1;
+    std::string cpu_affinity = "3-5";
 
     // 사전 검사: --help 와 더 이상 지원되지 않는 legacy 전역 -D 플래그.
     // RGB/Depth 는 이제 카메라별 ':type' hint 로 지정 (예: cam1:d).
@@ -601,7 +665,7 @@ int main(int argc, char *argv[])
     }
 
     int opt;
-    while((opt = getopt(argc, argv, "hdq:z:")) != -1)
+    while((opt = getopt(argc, argv, "hda:q:z:")) != -1)
     {
         switch(opt)
         {
@@ -610,6 +674,9 @@ int main(int argc, char *argv[])
                 return 0;
             case 'd':
                 g_enable_display = true;
+                break;
+            case 'a':
+                cpu_affinity = optarg;
                 break;
             case 'q':
                 jpeg_quality = atoi(optarg);
@@ -687,6 +754,13 @@ int main(int argc, char *argv[])
     {
         print_usage(argv[0]);
         return 0;
+    }
+
+    if(!cpu_affinity.empty() && !apply_cpu_affinity(cpu_affinity))
+    {
+        std::cerr << "Invalid CPU affinity list '" << cpu_affinity
+                  << "' (use e.g. -a 3-5 or -a 3,4,5)\n";
+        return -1;
     }
 
     signal(SIGINT, signal_handler);

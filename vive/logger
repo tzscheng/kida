@@ -7,7 +7,28 @@ def parse_args():
     par = argparse.ArgumentParser()
     par.add_argument('-t', default=-1, type=int, help='operation  type: [0]kida-left, [1]kida-right, [2]kida,  [5]gos10')
     par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5f]')
+    par.add_argument('-a', default='6-8', help='CPU affinity list (default: 6-8), e.g. 6,7,8 or 6-8')
     return par.parse_args()
+
+def parse_cpu_list(spec:str):
+    cpus = set()
+    for token in spec.split(','):
+        if not token: raise ValueError('empty CPU token')
+        if '-' in token:
+            start_s, end_s = token.split('-', 1)
+            start, end = int(start_s), int(end_s)
+            if start < 0 or end < start: raise ValueError('invalid CPU range')
+            cpus.update(range(start, end + 1))
+        else:
+            cpu = int(token)
+            if cpu < 0: raise ValueError('invalid CPU number')
+            cpus.add(cpu)
+    return cpus
+
+def apply_cpu_affinity(spec:str):
+    cpus = parse_cpu_list(spec)
+    os.sched_setaffinity(0, cpus)
+    print('[logger] CPU affinity: %s' % spec)
 
 def hdf5_write_task(data_queue:queue.Queue):
     global running
@@ -131,6 +152,11 @@ def hdf5_write_task(data_queue:queue.Queue):
 arg = parse_args()
 if arg.t < 0 : print('[logger] wrong type'); sys.exit()
 if arg.t != 5 and arg.g < 0 : print('[logger] wrong gripper'); sys.exit()
+try:
+    apply_cpu_affinity(arg.a)
+except (OSError, ValueError) as e:
+    print('[logger] invalid CPU affinity %r: %s' % (arg.a, e))
+    sys.exit(1)
 
 running = True
 log_on = False

@@ -2,6 +2,8 @@
 
 KIDA는 14-DOF dual-arm manipulator와 양손 gripper를 시뮬레이션 또는 실제 하드웨어에서 구동하는 프로젝트입니다. `kida-run`/`single-run` 실행기가 ZeroMQ command를 받고, proprioception과 camera frame을 publish합니다.
 
+실물 KIDA 로봇을 구동시키는 시스템은 제어, CAN bridge, RealSense camera, Vive/Manus teleop, logger, SteamVR 부하를 분리하기 위해 최소 물리코어 12개 이상의 CPU를 권장합니다.
+
 ## 설치 및 빌드
 
 clone한 repo 루트에서 실행합니다.
@@ -215,13 +217,21 @@ Kida 관련 실행기는 제어 주기 흔들림을 줄이기 위해 일부 프�
 | `eio/eio-kida.so` 오른팔 CAN pthread | Linux CPU 2 | `pthread_setaffinity_np`, `tid + 1` |
 | `eio/eio-single.so` | 별도 고정 없음 | runner 프로세스의 affinity를 따름 |
 | `eio/eio-dg5f` real-mode helper | 별도 고정 없음 | fork한 runner 프로세스의 affinity를 상속 |
-| `vive/steamvr-run`으로 시작/관리되는 Steam/SteamVR 계열 | 기본 Linux CPU 6-11 | `STEAMVR_CPUSET`으로 override 가능 |
+| `rs2/msender` main/worker threads | 기본 Linux CPU 3-5 | `-a cpu-list`로 override 가능 |
+| `vive/logger` main/writer threads | 기본 Linux CPU 6-8 | `-a cpu-list`로 override 가능 |
+| `vive/steamvr-run`으로 시작/관리되는 Steam/SteamVR 계열 | 기본 Linux CPU 9-11 | `STEAMVR_CPUSET`으로 override 가능 |
 
-현재 개발 머신은 24 logical CPU 구성이고 SMT sibling은 `0/12`, `1/13`, `2/14`, ... 형태입니다. 따라서 `kida-run`의 CPU 0, dual-arm eio thread의 CPU 1/2를 보호하려면 SteamVR 같은 무거운 프로세스를 `0-2`와 sibling인 `12-14`에서 빼는 것이 좋습니다.
+현재 개발 머신은 24 logical CPU 구성이고 SMT sibling은 `0/12`, `1/13`, `2/14`, ... 형태입니다. 기본 배치는 runner와 arm CAN thread를 CPU `0-2`, camera sender를 `3-5`, logger를 `6-8`, SteamVR 계열을 `9-11`에 둡니다. 이 배치는 12개 물리코어 기준으로 제어/카메라/로깅/VR 부하를 물리코어 단위로 분리하는 것을 전제로 합니다.
 
-`vive/steamvr-run`은 기본적으로 Steam/SteamVR 관련 프로세스를 `6-11`에 묶습니다. 다른 범위가 필요하면 실행 시 환경변수로 지정합니다.
+`rs2/msender`와 `vive/logger`는 comma와 range를 섞은 CPU list를 받습니다. 예를 들어 `3-5,15-17`은 CPU `3,4,5,15,16,17`을 의미합니다. `vive/steamvr-run`은 환경변수로 범위를 바꿉니다.
 
 ```bash
+rs2/msender headcam leftcam rightcam              # default: -a 3-5
+rs2/msender headcam leftcam rightcam -a 3-5,15-17
+
+vive/logger -t2 -g1                              # default: -a 6-8
+vive/logger -t2 -g1 -a6-8,18-20
+
 cd vive
-STEAMVR_CPUSET=6-11 ./steamvr-run
+STEAMVR_CPUSET=9-11 ./steamvr-run
 ```
