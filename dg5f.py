@@ -5,6 +5,7 @@ class Controller:
     n_u = 20 #number of control input
 
     def __init__(self, env, ymlname, prefix='', rate=None, verbose=False):
+        #self.has_pd = False
         self.has_pd = env.has_pd
         # Real-HW override: dg5f (dg5f hand) is intrinsically position-controlled — its
         # firmware always runs onboard PD on the q_ref it receives. The hand always
@@ -55,8 +56,7 @@ class Controller:
     def update(self, y):
         q, qd, act = y[0:20], y[20:40], y[40:60]
         # Each state branch sets exactly one of (tau, q_ref). Unused channel stays None.
-        tau = None
-        q_ref = None
+        tau = q_ref = None
 
         if self.s == 'joint':
             if self.t == 0:
@@ -64,17 +64,17 @@ class Controller:
                 duration = int(0.06*self.rate*e_eff) + 1
                 self.trj.target(self.v.reshape((1, 20)), [duration], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         elif self.s == 'zero':
             if self.t == 0: self.trj.target(np.zeros((1, 20)), [600], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         elif self.s == 'home':
             if self.t == 0: self.trj.target(self.home.reshape((1, 20)), [600], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         self.one_step_forward()
         return tau, q_ref, None, self.kp, self.kd

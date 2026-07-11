@@ -94,7 +94,12 @@ rs2/msender
 
 Vive tracker나 Manus glove를 함께 쓸 때는 `vive/steamvr-run`, `vive/vmaster`, `vive/logger`, `vive/player`, `vive/calib/`을 사용합니다. 필요한 경우 해당 센서 프로세스를 별도 터미널에서 실행합니다.
 
-종료 후 CAN interface를 내릴 때는 `sudo ip link set can<N> down`을 사용합니다.
+종료 후 CAN interface를 내릴 때는 kida 로컬 `can-down` helper를 사용합니다.
+
+```bash
+./can-down 0
+./can-down 1
+```
 
 ## ZeroMQ 통신
 
@@ -186,7 +191,7 @@ Dual-arm `kida-run -g 1`의 proprioception layout은 다음과 같습니다.
 | `dg5f.py` | DG5F hand gripper agent |
 | `h9.py` | H9 hand agent (`../fg/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
-| `can-up` | CAN interface bitrate 설정 및 up helper |
+| `can-up`, `can-down` | CAN interface bitrate 설정/up 및 down helper |
 | `utils/start` | generic runner 복사본 |
 | `utils/zmqmsg`, `utils/udpmsg` | command 송신 helper |
 | `utils/rcvpp.py` | proprioception subscriber |
