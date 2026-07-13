@@ -90,19 +90,6 @@ class Controller:
         JJt = J @ J.T + (damping*damping) * np.eye(J.shape[0])
         return tau - J.T @ np.linalg.solve(JJt, J @ tau)
 
-    #def _task_error(self, q, x_d):
-    #    Te = self.m.fkh(['tcp'], q)[0]
-    #    Td = tact.xyzeuler_to_homogeneous(x_d)
-    #    e_t = Td[:3, 3] - Te[:3, 3]
-    #    R1, R2 = Td[:3, :3], Te[:3, :3]
-    #    e_o = 0.5*(np.cross(R2[:, 0], R1[:, 0]) + np.cross(R2[:, 1], R1[:, 1]) + np.cross(R2[:, 2], R1[:, 2]))
-    #    return np.r_[e_t, e_o]
-
-    #def _task_tau(self, x_d, q, qd, J):
-    #    e = self._task_error(q, x_d)
-    #    x_dot = J @ qd
-    #    return J.T @ (self.task_Kp*e - self.task_Kd*x_dot)
-
     def one_step_forward(self):
         if self.s != self.next_s: self.shift(self.next_s)
         else: self.t += 1
