@@ -220,7 +220,7 @@ class Controller:
             
         self.one_step_forward()
         self.q_ref_old = q_ref
-        return tau, None, None, self.kp, self.kd
+        return tau, q_ref, None, self.kp, self.kd
 
 
 
