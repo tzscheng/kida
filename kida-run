@@ -52,8 +52,14 @@ if arg.x: #start with real H/W
 #    env = tact.CEnv(cdll, n_y=..., backend='mujoco')
 else: #start with tact simulator
     env = tact.Env('yaml/kida', offset=[0, 0, 1.2, 0, 0, 0], render=not arg.l, redraw=16)
-    env.add('yaml/%s-left'  %gname, prefix='hand1.', base='tcp1', offset=[0.05, 0, 0, 0, 90, -90])
-    env.add('yaml/%s-right' %gname, prefix='hand2.', base='tcp2', offset=[0.05, 0, 0, 0, 90,  90])
+    # offset y=+0.0071 aligns dg5f-left's root origin (ll_dg_palm) with dg5f-right's:
+    # the left YAML's 3 central finger bases sit at root-x=-0.0071 vs right's x=0, a 7.1mm
+    # origin shift; +0.0071 in tcp1-y compensates it (sign verified on render/HW).
+    env.add('yaml/%s-left'  %gname, prefix='hand1.', base='tcp1', offset=[0.02, 0.0071, 0, 0, 90, -90])
+    # mirror of the left: dg5f-right's 3 central finger bases also sit at root-x=-0.0071,
+    # and with yaw=+90 the tcp2-y correction flips sign -> -0.0071. x matched to the
+    # left's 0.02 gap for symmetry.
+    env.add('yaml/%s-right' %gname, prefix='hand2.', base='tcp2', offset=[0.02, -0.0071, 0, 0, 90,  90])
     env.add('yaml/desk1')
     env.edit('tcp1', m=0.6, c=[0.05, 0, 0])
     env.edit('tcp2', m=0.6, c=[0.05, 0, 0])
