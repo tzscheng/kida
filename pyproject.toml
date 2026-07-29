@@ -12,6 +12,7 @@ dependencies = [
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
     "opencv-python>=4.13",
+    "pyside6>=6.11.1",
     "pytact>=0.1.0a9",
     "pyyaml>=6.0.3",
     "pyzmq>=27.1.0",
