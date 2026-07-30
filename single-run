@@ -8,7 +8,7 @@ import tact, single
 def parse_args():
     par = argparse.ArgumentParser()
     par.add_argument('-t', default=-1, type=int, help='arm type [0: left, 1: right]')
-    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5f]')
+    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5f (DG-5F-M), 3: dg5s (DG-5F-S)]')
     par.add_argument('-x', action='store_true', default=False, help='real')
     par.add_argument('-v', action='store_true', default=False, help='verbose')
     par.add_argument('-b', action='store_true', default=False, help='use built-in pd controller (real h/w only)')
@@ -31,14 +31,24 @@ try: os.sched_setaffinity(0, {0})
 except Exception as e: print('set affinity failed'); sys.exit()
 
 arg = parse_args()
-# yoff aligns the dg5f root origin (ll_dg_palm): both hands' 3 central finger bases sit
-# at root-x=-0.0071, so tcp-y is offset by +0.0071. The mount yaw sign (-90 left / +90
-# right) flips it -> +0.0071 left, -0.0071 right (verified on render/HW).
-if   arg.t == 0: ymltail, yaw, yoff = '-left', -90, 0.0071
-elif arg.t == 1: ymltail, yaw, yoff = '-right', 90, -0.0071
+if   arg.t == 0: ymltail, yaw, ysign = '-left', -90,  1.0
+elif arg.t == 1: ymltail, yaw, ysign = '-right', 90, -1.0
 else: print('choose arm type [0: left, 1: right]'); sys.exit(0)
-if   arg.g == 0: gname = 'h9';  import h9 as gmod
-elif arg.g == 1: gname = 'dg5f'; import dg5f as gmod
+# Gripper choice also fixes the TCP mount offsets (hx, hy) used below, since each
+# hand yaml has its own palm origin. dg5s (DG-5F-S) is a separate model rather than
+# a variant of the -M yaml -- shorter links, different palm origin -- but its joint
+# layout is identical, so dg5f.py drives both.
+# hx is the wrist->palm gap, hy the lateral correction, mirrored by ysign because
+# the mount yaw sign (-90 left / +90 right) flips tcp-y.
+# dg5f: hy=0.0071 cancels a root-origin shift -- both hands' 3 central finger bases
+# sit at root-x=-0.0071 vs a palm origin (ll_dg_palm) at x=0 (verified on render/HW).
+# dg5s: values taken from the render-verified kida-run pair; its finger bases sit at
+# root-x=+0.00245, so hy is NOT that same cancellation and was set by eye. Note hx
+# here is 0.05 for dg5f while kida-run uses 0.02 for the same hand and an identical
+# tcp frame -- a pre-existing discrepancy between the two runners, left as is.
+if   arg.g == 0: gname, hx, hy = 'h9',   0.05, 0.0071; import h9 as gmod
+elif arg.g == 1: gname, hx, hy = 'dg5f', 0.05, 0.0071; import dg5f as gmod
+elif arg.g == 3: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5f as gmod
 else: print('wrong gripper type'); sys.exit()
 
 #Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
@@ -53,7 +63,7 @@ if arg.x: #start with real H/w
     env = tact.CEnv(cdll, n_y=single.Controller.n_y + gmod.Controller.n_y, n_u=single.Controller.n_u + gmod.Controller.n_u, backend='real', has_pd=arg.b)
 else: #start with tact simulator
     env = tact.Env('yaml/kida%s' %ymltail, offset=[0, 0, 1.2, 0, 0, 0], render=not arg.l, redraw=16)
-    env.add('yaml/%s' %(gname + ymltail), prefix='hand.', base='tcp', offset=[0.05, yoff, 0, 0, 90, yaw])
+    env.add('yaml/%s' %(gname + ymltail), prefix='hand.', base='tcp', offset=[hx, ysign * hy, 0, 0, 90, yaw])
     env.add('yaml/desk1')
     env.edit('tcp', m=0.6, c=[0.05, 0, 0])
     env.m.view = [0, 0, -0.34+1.2, 1.3, 180, 20]
