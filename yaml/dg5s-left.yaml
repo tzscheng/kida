@@ -131,7 +131,7 @@ feeds:
 # point narrowphase is box-box only), so `cell` never fires and `radius`
 # alone sets the patch width; the kernel is unnormalised, so sum(frame) is
 # ~4x the true normal force -- calibrate, do not read it as newtons.
-# Regenerate with: uv run utils/gen_taxels.py yaml/dg5f-s-left.yaml (local-only tool)
+# Regenerate with: uv run utils/gen_taxels.py yaml/dg5s-left.yaml (local-only tool)
 
 # Not completed. Don't use this function.
 tactiles:
