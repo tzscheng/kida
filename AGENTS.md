@@ -12,7 +12,7 @@ This project provides:
 - `single.py` — `agent` class for one arm + hand (`n_u=7`, `n_y=21`), used when running just the left or right side.
 - `kida-run` / `single-run` — executable runners (uv shebang) that replace the generic `fg/start`. Unlike `start`, these wire up an arm agent **plus** one or two hand agents (`h9` or `dg5f`) and concatenate the `u`/`y` vectors themselves.
 - `eio/eio-kida.c` / `eio/eio-single.c` → `eio/eio-kida.so` / `eio/eio-single.so` — C shared libs that drive the real arms over CAN (per-arm pthread on cores 1, 2) and the DG-5 hands over UDP (`127.0.0.1:6660` left, `:6661` right). `htype=1` forks `eio/eio-dg5f` (tracked binary); `htype=0` is H9-style hands handled inside the Python loop.
-- `yaml/kida.yaml`, `yaml/kida-left.yaml`, `yaml/kida-right.yaml` — robot models for the dual arm and per-arm variants. Gripper YAMLs (`dg5f-*.yaml`, `h9-*.yaml`) are local files (h9 ones copied from `../fg/h9/yml/`).
+- `yaml/kida.yaml`, `yaml/kida-left.yaml`, `yaml/kida-right.yaml` — robot models for the dual arm and per-arm variants. Gripper YAMLs (`dg5f-*.yaml` for the DG-5F-M, `dg5f-s-*.yaml` for the smaller DG-5F-S, `h9-*.yaml`) are local files (h9 ones copied from `../fg/h9/yml/`).
 - `usrsample.py` — reference ZMQ client. `rcvpp.py` is a minimal proprio subscriber.
 
 ## Build / run
@@ -27,7 +27,8 @@ cd vive && ./build.sh                        # vive/vmaster (separate; local ret
 Dual-arm:
 ```bash
 ./kida-run -g 0                              # tact sim, H9 hands
-./kida-run -g 1                              # tact sim, DG-5 hands
+./kida-run -g 1                              # tact sim, DG-5F-M hands
+./kida-run -g 1 -s                           # tact sim, DG-5F-S hands (yaml/dg5f-s-*)
 ./kida-run -g 1 -x [-b]                      # real hardware (eio/eio-kida.so); -b uses
                                             # actuator built-in position control instead of torque
 ./kida-run -g 1 -v                           # verbose: print TCP pose each step
@@ -36,10 +37,13 @@ Dual-arm:
 Single arm (one side at a time):
 ```bash
 ./single-run -t 0 -g 0                       # left arm + H9 hand, sim
-./single-run -t 1 -g 1 -x                    # right arm + DG-5 hand, real
+./single-run -t 1 -g 1 -x                    # right arm + DG-5F-M hand, real
+./single-run -t 0 -g 1 -s                    # left arm + DG-5F-S hand, sim
 ```
 
-Flags shared by both runners: `-x` real hardware (loads `eio/eio-*.so`), `-b` actuator built-in position controller, `-v` verbose, `-g 0|1` gripper (h9|dg5f). `kida-run` also has `-m` (MuJoCo, currently commented out). `single-run` requires `-t 0|1` for left/right.
+Flags shared by both runners: `-x` real hardware (loads `eio/eio-*.so`), `-b` actuator built-in position controller, `-v` verbose, `-g 0|1` gripper (h9|dg5f), `-s` DG-5F-S instead of DG-5F-M (`-g 1` only — it swaps in `yaml/dg5f-s-*` **and** the matching TCP mount offsets, since the S has shorter links and a different palm origin). `kida-run` also has `-m` (MuJoCo, currently commented out). `single-run` requires `-t 0|1` for left/right.
+
+The `-M` mount offset `hy=0.0071` cancels a root-origin shift in the YAML (both hands' 3 central finger bases sit at root-x=-0.0071) and is verified on render/HW. The `-S` pair `(hx, hy) = (0.06, 0.015)` was set by eye on the render, **not** derived — its finger bases sit at root-x=+0.00245, so the same cancellation does not apply. Re-check it if the S palm geometry changes. Note also that the `-M` `hx` differs between the runners (0.02 in `kida-run`, 0.05 in `single-run`) for an identical tcp frame — a pre-existing discrepancy, left as is.
 
 The runners pin to CPU 0 (`sched_setaffinity({0})`); the C side pins arm threads to cores 1 and 2.
 

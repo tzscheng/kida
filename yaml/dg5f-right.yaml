@@ -1,5 +1,5 @@
-#abstract: joint positions mirrored (y -> -y) from dg5f-left.yaml (origin: palm (0, 0, 0.00015))
-#date: 2025-10-30
+#abstract: DG-5F-M, Right
+#date: 2026-07-23
 
 sim: {solver: lcp, dt: 0.001, g: [0, 0, 0]}
 view: {target: [0, 0, 0.1], distance: 0.5, yaw: 0, pitch: 0}
