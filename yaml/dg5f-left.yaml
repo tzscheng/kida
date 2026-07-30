@@ -1,5 +1,5 @@
-#abstract: joint positions matched to dg5f_L_only.xml (origin: ll_dg_palm (0, 0, 0.00015))
-#date: 2025-10-30
+#abstract: DG-5F-M, Left
+#date: 2026-07-23
 
 sim: {solver: lcp, dt: 0.001, g: [0, 0, 0]}
 view: {target: [0, 0, 0.1], distance: 0.5, yaw: 0, pitch: 0}
@@ -12,7 +12,7 @@ materials:
 bodies:
   - name: root
     #inertial: {mass: 0.5, tensor: [sphere, 0.05], pos: [0, 0, 0.01]}
-    shapes:
+    shapes: 
     - {type: capsule, pos: [0.0071, 0, 0.06], euler: [90, 0, 0], param: [0.02, 0.0125], rgba: [0.9, 0.4, 0.9, 1.0]}
     - {type: capsule, pos: [0.0071, 0, 0.02], euler: [90, 0, 0], param: [0.02, 0.0125], rgba: [0.9, 0.4, 0.9, 1.0]}
 
