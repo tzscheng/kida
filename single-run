@@ -65,7 +65,6 @@ else: #start with tact simulator
     env = tact.Env('yaml/kida%s' %ymltail, offset=[0, 0, 1.2, 0, 0, 0], render=not arg.l, redraw=16)
     env.add('yaml/%s' %(gname + ymltail), prefix='hand.', base='tcp', offset=[hx, ysign * hy, 0, 0, 90, yaw])
     env.add('yaml/desk1')
-    env.edit('tcp', m=0.6, c=[0.05, 0, 0])
     env.m.view = [0, 0, -0.34+1.2, 1.3, 180, 20]
     
 ctx = zmq.Context()
@@ -137,7 +136,7 @@ while True:
         # HW eio pacing exactly; sim with frameskip=4 actually runs at 250Hz so
         # trajectories are ~4% faster wall-clock — negligible, not worth the
         # branching). Arm and hand share the loop so they get the same rate.
-        arm  = single.Controller(env, 'yaml/kida%s' %ymltail, rate=240, verbose=arg.v)
+        arm  = single.Controller(env, 'yaml/kida%s' %ymltail, rate=240, verbose=arg.v, gripper=gname)
         hand = gmod.Controller(env, 'yaml/%s' %(gname + ymltail), rate=240, verbose=False)
         y = env.reset()
 

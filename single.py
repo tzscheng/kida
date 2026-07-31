@@ -1,10 +1,12 @@
 import numpy as np, tact
 
+from hand_payload import attach_hand_payload
+
 class Controller:
     n_y = 21 #number of outputs
     n_u = 7 #number of control input
 
-    def __init__(self, env, ymlname, prefix='', rate=None, verbose=False):
+    def __init__(self, env, ymlname, prefix='', rate=None, verbose=False, gripper=None):
         # TODO when has_pd=True is used (single-run -b): wrap the self.m.ik(...) calls
         # in update()'s task/home-task/task-loop branches with try/except RuntimeError
         # → fall back to self.q_ref_old. IK can fail at workspace boundary / near
@@ -15,6 +17,9 @@ class Controller:
         self.verbose = verbose
 
         self.m = tact.Model(ymlname)
+        # When a hand is selected, add its equivalent payload to the bare TCP.
+        if gripper is not None:
+            attach_hand_payload(self.m, 'tcp', gripper)
         self.env = env
         self.prefix = prefix
 

@@ -34,9 +34,9 @@ arg = parse_args()
 # hand yaml has its own palm origin. dg5s (DG-5F-S) is a separate model rather than
 # a variant of the -M yaml -- shorter links, different palm origin -- but its joint
 # layout is identical, so dg5f.py drives both.
-if   arg.g == 0: gname, hx, hy = 'h9',   0.02, 0.0071; import h9 as gmod
-elif arg.g == 1: gname, hx, hy = 'dg5f', 0.02, 0.0071; import dg5f as gmod
-elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5f as gmod
+if   arg.g == 0: gname, hx, hy = 'h9',   0.02, 0.0071; import h9  as gmod
+elif arg.g == 1: gname, hx, hy = 'dg5f', 0.02, 0.0071; import dg5 as gmod
+elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5 as gmod
 else: print('wrong gripper type'); sys.exit()
 
 #Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
@@ -69,8 +69,6 @@ else: #start with tact simulator
     env.add('yaml/%s-left'  %gname, prefix='hand1.', base='tcp1', offset=[hx,  hy, 0, 0, 90, -90])
     env.add('yaml/%s-right' %gname, prefix='hand2.', base='tcp2', offset=[hx, -hy, 0, 0, 90,  90])
     env.add('yaml/desk1')
-    env.edit('tcp1', m=0.6, c=[0.05, 0, 0])
-    env.edit('tcp2', m=0.6, c=[0.05, 0, 0])
     env.m.view = [0, 0, -0.34+1.2, 1.3, 180, 20]
 
 ctx = zmq.Context()
@@ -142,7 +140,7 @@ while True:
         # HW eio pacing exactly; sim with frameskip=4 actually runs at 250Hz so
         # trajectories are ~4% faster wall-clock — negligible, not worth the
         # branching). Arms and hands share the loop so they get the same rate.
-        arms  = kida.Controller(env, 'yaml/kida', rate=240, verbose=arg.v)
+        arms  = kida.Controller(env, 'yaml/kida', rate=240, verbose=arg.v, gripper=gname)
         hand1 = gmod.Controller(env, 'yaml/%s-left'  %gname, prefix='hand1.', rate=240, verbose=False)
         hand2 = gmod.Controller(env, 'yaml/%s-right' %gname, prefix='hand2.', rate=240, verbose=False)
         y = env.reset()

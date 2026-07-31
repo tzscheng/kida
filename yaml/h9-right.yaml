@@ -9,8 +9,16 @@ materials:
     mat1: {normal: [10000, 50], tangent: [20000, 50, 0.8], spin: [100, 1, 0.02], roll: [100, 1, 0.005]}
 
 bodies:
+  - name: root
+
+  # Placeholder palm inertia. The nine 0.1 kg finger links plus this 0.7 kg
+  # palm retain the previous 1.6 kg whole-hand estimate.
+  - name: palm
+    joint: {type: fixed, parent: root}
+    inertial: {mass: 0.7, tensor: [sphere, 0.03], pos: [0.05, 0, 0]}
+
   - name: thumb1
-    joint: {type: rev, parent: root, pos: [0, 0.01, 0.02], euler: [-180, 0, 0], damping: 0.02}
+    joint: {type: rev, parent: palm, pos: [0, 0.01, 0.02], euler: [-180, 0, 0], damping: 0.02}
     inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
     shapes: [{type: capsule, pos: [0, -0.01, 0], euler: [90, 0, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
@@ -26,7 +34,7 @@ bodies:
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
   - name: index1
-    joint: {type: rev, parent: root, pos: [0, 0.024, 0.06], euler: [-95, 0, 0], damping: 0.02}
+    joint: {type: rev, parent: palm, pos: [0, 0.024, 0.06], euler: [-95, 0, 0], damping: 0.02}
     inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
@@ -37,7 +45,7 @@ bodies:
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: middle1
-    joint: {type: rev, parent: root, pos: [0, 0, 0.065], euler: [-90, 0, 0], damping: 0.02}
+    joint: {type: rev, parent: palm, pos: [0, 0, 0.065], euler: [-90, 0, 0], damping: 0.02}
     inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
@@ -48,7 +56,7 @@ bodies:
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: ring1
-    joint: {type: rev, parent: root, pos: [0, -0.024, 0.06], euler: [-85, 0, 0], damping: 0.02}
+    joint: {type: rev, parent: palm, pos: [0, -0.024, 0.06], euler: [-85, 0, 0], damping: 0.02}
     inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
