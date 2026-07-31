@@ -36,7 +36,7 @@ arg = parse_args()
 # layout is identical, so dg5f.py drives both.
 if   arg.g == 0: gname, hx, hy = 'h9',   0.02, 0.0071; import h9 as gmod
 elif arg.g == 1: gname, hx, hy = 'dg5f', 0.02, 0.0071; import dg5f as gmod
-elif arg.g == 3: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5f as gmod
+elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5f as gmod
 else: print('wrong gripper type'); sys.exit()
 
 #Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
