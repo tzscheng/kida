@@ -14,9 +14,7 @@ char buf[4096];
 int fd; //CAN file descriptor
 int ch; //0:left 1:right
 int cmode; //control mode 0:torque control 1:built-in position control 2:motion mode (PD+ff)
-int htype; //hand type [0]: h9 (driven inside the Python loop) [1]: DG-5F-M [2]: DG-5F-S
-           //1 and 2 share this file's UDP relay but fork different helper binaries,
-           //because the -M and -S are distinct DGSDK models.
+int htype; //hand type
 int sockfd;
 pthread_t cam_th;
 struct sockaddr_in hand_addr;
@@ -57,11 +55,8 @@ void init(const char* args) {
 	exit(0);
     }
     
-    //htype 1/2: start with dg-5 (1 = DG-5F-M -> eio-dg5f, 2 = DG-5F-S -> eio-dg5s)
-    if(htype != 0){
-	const char* hbin = (htype == 2) ? "eio/eio-dg5s" : "eio/eio-dg5f";
-	const char* hnam = (htype == 2) ? "eio-dg5s"     : "eio-dg5f";
-
+    //htype 1: start with dg5f
+    if(htype == 1){
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	memset(&hand_addr, 0, sizeof(hand_addr));
 	hand_addr.sin_family = AF_INET;
@@ -70,12 +65,12 @@ void init(const char* args) {
 
 	pid_t pid = fork();
 	if(pid == 0){
-	    if (ch == 0) execl(hbin, hnam, "-t0", "-r", NULL);
-	    else execl(hbin, hnam, "-t1", "-r", NULL);
+	    if (ch == 0) execl("eio/eio-dg5f", "eio-dg5f", "-t0", "-r", NULL);
+	    else execl("eio/eio-dg5f", "eio-dg5f", "-t1", "-r", NULL);
 	    perror("exec"); //<-- should never reach here
 	    exit(0);
 	}
-	//wait until the hand helper is fully ready
+	//wait until dg5f is fully ready
 	usleep(2000000);
     }
 
@@ -158,7 +153,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
     }
 
     //update hand target — via q_ref (hand is position-only by hardware nature)
-    if(htype != 0){
+    if(htype == 1){
 	float data[60];
 	socklen_t len = sizeof(hand_addr);
 	buf[0] = 'S';
@@ -181,10 +176,10 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
 }
 
 void reset(double* y){
-    // 7 arm DoF + up to 20 hand DoF when htype != 0. step() handles NULL inputs
+    // 7 arm DoF + up to 20 hand DoF when htype==1. step() handles NULL inputs
     // (treats them as zero), so reset can just pass NULL — the arm sees a zero
-    // current/position command for one cycle and the hand gets zero q_ref
-    // (dg5f/dg5s firmware rests at zero on power-on, so this is benign).
+    // current/position command for one cycle and the hand gets zero q_ref (dg5f
+    // firmware rests at zero on power-on, so this is benign).
     step(NULL, NULL, NULL, NULL, NULL, y);   // kp/kd ignored (firmware gains)
 }
 
@@ -203,7 +198,7 @@ void finish(){
 	printf("cam thread finished..\n");
 	}*/
     
-    if(htype != 0){
+    if(htype == 1){
 	buf[0] = 'Q';
 	sendto(sockfd, buf, 1, 0, (struct sockaddr *)&hand_addr, sizeof(hand_addr));
 	usleep(1000000);

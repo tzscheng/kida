@@ -17,9 +17,7 @@ int th_arg[4] = {0, 1, 2, 3}; //left-arm, right-arm, left-hand, right-hand
 long cnt;
 int flag;
 int cmode; //control mode [0]:torque control [1]: built-in position controller [2]: motion mode (PD+ff)
-int htype; //hand type [0]: h9 (driven inside the Python loop) [1]: DG-5F-M [2]: DG-5F-S
-           //1 and 2 share this file's UDP relay but fork different helper binaries,
-           //because the -M and -S are distinct DGSDK models.
+int htype;
 int sockfd;
 struct sockaddr_in hand1_addr, hand2_addr;
 
@@ -130,11 +128,8 @@ void init(const char* args) {
     pthread_create(&th[0], NULL, &arm_task, (void*)&th_arg[0]);
     pthread_create(&th[1], NULL, &arm_task, (void*)&th_arg[1]);
     
-    //htype 1/2: start with dg-5 (1 = DG-5F-M -> eio-dg5f, 2 = DG-5F-S -> eio-dg5s)
-    if(htype != 0){
-	const char* hbin = (htype == 2) ? "eio/eio-dg5s" : "eio/eio-dg5f";
-	const char* hnam = (htype == 2) ? "eio-dg5s"     : "eio-dg5f";
-
+    //htype 1: start with dg-5
+    if(htype == 1){
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	memset(&hand1_addr, 0, sizeof(hand1_addr));
 	hand1_addr.sin_family = AF_INET;
@@ -148,19 +143,19 @@ void init(const char* args) {
 
 	pid_t pid = fork();
 	if(pid == 0){
-	    execl(hbin, hnam, "-t0", "-r", NULL);
+	    execl("eio/eio-dg5f", "eio-dg5f", "-t0", "-r", NULL);
 	    perror("exec1"); //<-- should never reach here
 	    exit(0);
 	}
 
 	pid = fork();
 	if(pid == 0){
-	    execl(hbin, hnam, "-t1", "-r", NULL);
+	    execl("eio/eio-dg5f", "eio-dg5f", "-t1", "-r", NULL);
 	    perror("exec2"); //<-- should never reach here
 	    exit(0);
 	}
 
-	//wait until the hand helper is fully ready
+	//wait until dg5f is fulley ready
 	usleep(2000000);
     }
     
@@ -206,7 +201,7 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
     }
 
     //update hand targets — via q_ref (hands are position-only by hardware nature)
-    if(htype != 0){
+    if(htype == 1){
 	float data[60];
 	socklen_t len = sizeof(hand1_addr);
 	buf[0] = 'S';
@@ -258,11 +253,11 @@ void step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, do
 }
 
 void reset(double* y){
-    // 14 arm DoF + up to 40 hand DoF when htype != 0.
+    // 14 arm DoF + up to 40 hand DoF when htype==1.
     // cmode==1 needs q_ref; we temporarily swap to torque mode for the arm encoder
     // read (motors receive one cycle of zero current). Hands still get a zero q_ref
-    // (htype != 0 path) — dg5f/dg5s firmware naturally rests at position 0 on
-    // power-on so commanding zero is benign.
+    // (htype==1 path) — dg5f firmware naturally rests at position 0 on power-on so
+    // commanding zero is benign.
     double zero_tau[54]   = {0};
     double zero_q_ref[54] = {0};
     int saved = cmode;
@@ -289,7 +284,7 @@ void finish(){
 	}*/
 
     //finish hand proc.
-    if(htype != 0){
+    if(htype == 1){
 	buf[0] = 'Q';
 	sendto(sockfd, buf, 1, 0,(struct sockaddr *)&hand1_addr, sizeof(hand1_addr));
 	sendto(sockfd, buf, 1, 0,(struct sockaddr *)&hand2_addr, sizeof(hand2_addr));
