@@ -1,6 +1,6 @@
 import numpy as np, tact
 
-from hand_payload import attach_hand_payload
+from payload import attach_hand_payload
 
 class Controller:
     n_y = 42 #number of outputs
