@@ -17,8 +17,8 @@ def _sphere_payload(mass, com, radius):
 # placeholder. That keeps gripper selection explicit and lets each hand be
 # calibrated without changing the controller/runner interface.
 _HAND_PAYLOADS = {
-    'h9':   _sphere_payload(1.6, [0.08, 0.0, 0.0], 0.03),
-    'dg5f': _sphere_payload(1.6, [0.08, 0.0, 0.0], 0.03),
+    'h9':   _sphere_payload(0.58, [0.06, 0.0, 0.0], 0.03),
+    'dg5f': _sphere_payload(1.60, [0.08, 0.0, 0.0], 0.03),
     'dg5s': _sphere_payload(0.96, [0.08, 0.0, 0.0], 0.03),
 }
 

@@ -11,58 +11,57 @@ materials:
 bodies:
   - name: root
 
-  # Placeholder palm inertia. The nine 0.1 kg finger links plus this 0.7 kg
-  # palm retain the previous 1.6 kg whole-hand estimate.
+  # Placeholder palm and finger-link inertias (0.58 kg whole-hand estimate).
   - name: palm
     joint: {type: fixed, parent: root}
-    inertial: {mass: 0.7, tensor: [sphere, 0.03], pos: [0.05, 0, 0]}
+    inertial: {mass: 0.4, tensor: [sphere, 0.03], pos: [0.05, 0, 0]}
 
   - name: thumb1
     joint: {type: rev, parent: palm, pos: [0, -0.01, 0.02], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
     shapes: [{type: capsule, pos: [0, -0.01, 0], euler: [90, 0, 0], param: [0.01, 0.01], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
   - name: thumb2
     joint: {type: rev, parent: thumb1, pos: [0, -0.02, 0], euler: [0, -90, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: thumb3
     joint: {type: rev, parent: thumb2, pos: [0, -0.042, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
     frames: [{name: tip1, pos: [0, -0.035, 0]}]
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
   - name: index1
     joint: {type: rev, parent: palm, pos: [0, -0.024, 0.06], euler: [-85, 0, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: index2
     joint: {type: rev, parent: index1, pos: [0, -0.042, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
     frames: [{name: tip2, pos: [0, -0.035, 0]}]
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: middle1
     joint: {type: rev, parent: palm, pos: [0, 0, 0.065], euler: [-90, 0, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
     
   - name: middle2
     joint: {type: rev, parent: middle1, pos: [0, -0.042, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
     frames: [{name: tip3, pos: [0, -0.035, 0]}]
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: ring1
     joint: {type: rev, parent: palm, pos: [0, 0.024, 0.06], euler: [-95, 0, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
     shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
   - name: ring2
     joint: {type: rev, parent: ring1, pos: [0, -0.042, 0], damping: 0.02}
-    inertial: {mass: 0.1, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
+    inertial: {mass: 0.02, tensor: [sphere, 0.05], pos: [0, -0.035, 0]}
     frames: [{name: tip4, pos: [0, -0.035, 0]}]
     shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
 
