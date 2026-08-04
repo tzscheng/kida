@@ -1,4 +1,4 @@
-"""Placeholder whole-hand payloads for the arm-only control models.
+"""Gripper mounting and equivalent-payload configuration.
 
 The simulator loads the articulated hand model, including its fixed palm body.
 The arm controllers do not, so they use one equivalent rigid payload at the TCP.
@@ -13,24 +13,45 @@ def _sphere_payload(mass, com, radius):
     return {'m': mass, 'c': np.asarray(com, dtype=float), 'I': inertia}
 
 
-# These are deliberately separate entries even while they share the old DG-5F
-# placeholder. That keeps gripper selection explicit and lets each hand be
-# calibrated without changing the controller/runner interface.
-_HAND_PAYLOADS = {
-    'h9':   _sphere_payload(0.58, [0.06, 0.0, 0.0], 0.03),
-    'dg5f': _sphere_payload(1.60, [0.08, 0.0, 0.0], 0.03),
-    'dg5s': _sphere_payload(0.96, [0.08, 0.0, 0.0], 0.03),
+# Mount is ``(hx, hy)``: wrist-to-palm gap and lateral correction. The runner
+# mirrors hy for the right arm because its +90 degree mount yaw flips TCP-y.
+#
+# dg5f: hy=0.0071 cancels the root-origin shift verified on render/hardware.
+# dg5s: (0.06, 0.015) was set by eye on the render rather than derived; re-check
+# it if the S palm geometry changes.
+_GRIPPERS = {
+    'h9': {
+        'mount': (0.02, 0.0071),
+        'payload': _sphere_payload(0.58, [0.06, 0.0, 0.0], 0.03),
+    },
+    'dg5f': {
+        'mount': (0.02, 0.0071),
+        'payload': _sphere_payload(1.60, [0.08, 0.0, 0.0], 0.03),
+    },
+    'dg5s': {
+        'mount': (0.06, 0.015),
+        'payload': _sphere_payload(0.96, [0.08, 0.0, 0.0], 0.03),
+    },
 }
+
+
+def _get_gripper(gripper):
+    try:
+        return _GRIPPERS[gripper]
+    except KeyError:
+        raise ValueError(
+            f"unknown gripper {gripper!r}; expected one of {sorted(_GRIPPERS)}"
+        ) from None
+
+
+def get_hand_mount(gripper):
+    """Return the gripper's ``(hx, hy)`` TCP mount offsets."""
+    return _get_gripper(gripper)['mount']
 
 
 def get_hand_payload(gripper):
     """Return a copy safe to pass directly to ``tact.Model.edit``."""
-    try:
-        payload = _HAND_PAYLOADS[gripper]
-    except KeyError:
-        raise ValueError(
-            f"unknown gripper {gripper!r}; expected one of {sorted(_HAND_PAYLOADS)}"
-        ) from None
+    payload = _get_gripper(gripper)['payload']
     return {
         'm': payload['m'],
         'c': payload['c'].copy(),

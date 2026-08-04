@@ -4,6 +4,7 @@ import sys, os, argparse, ctypes, atexit, numpy as np, zmq
 from collections import deque
 import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
 import tact, single
+from gripper import get_hand_mount
 
 def parse_args():
     par = argparse.ArgumentParser()
@@ -34,22 +35,13 @@ arg = parse_args()
 if   arg.t == 0: ymltail, yaw, ysign = '-left', -90,  1.0
 elif arg.t == 1: ymltail, yaw, ysign = '-right', 90, -1.0
 else: print('choose arm type [0: left, 1: right]'); sys.exit(0)
-# Gripper choice also fixes the TCP mount offsets (hx, hy) used below, since each
-# hand yaml has its own palm origin. dg5s (DG-5F-S) is a separate model rather than
-# a variant of the -M yaml -- shorter links, different palm origin -- but its joint
-# layout is identical, so dg5.py drives both.
-# hx is the wrist->palm gap, hy the lateral correction, mirrored by ysign because
-# the mount yaw sign (-90 left / +90 right) flips tcp-y.
-# dg5f: hy=0.0071 cancels a root-origin shift -- both hands' 3 central finger bases
-# sit at root-x=-0.0071 vs a palm origin (ll_dg_palm) at x=0 (verified on render/HW).
-# dg5s: values taken from the render-verified kida-run pair; its finger bases sit at
-# root-x=+0.00245, so hy is NOT that same cancellation and was set by eye. Note hx
-# here is 0.05 for dg5f while kida-run uses 0.02 for the same hand and an identical
-# tcp frame -- a pre-existing discrepancy between the two runners, left as is.
-if   arg.g == 0: gname, hx, hy = 'h9',   0.05, 0.0071; import h9 as gmod
-elif arg.g == 1: gname, hx, hy = 'dg5f', 0.05, 0.0071; import dg5 as gmod
-elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5 as gmod
+# dg5f and dg5s share their 20-joint controller; geometry and mount offsets are
+# selected independently by gripper name.
+if   arg.g == 0: gname = 'h9';   import h9 as gmod
+elif arg.g == 1: gname = 'dg5f'; import dg5 as gmod
+elif arg.g == 2: gname = 'dg5s'; import dg5 as gmod
 else: print('wrong gripper type'); sys.exit()
+hx, hy = get_hand_mount(gname)
 
 #Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
 #Sim → 4 (control rate 250Hz, matches real). Real → 1 (eio already paces).
