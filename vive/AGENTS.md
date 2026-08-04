@@ -23,7 +23,7 @@ SteamVR must already be running.
 - `~/ongoing/dev/vive/vive-udp [-tN]`: minimal tracker pose UDP streamer to `127.0.0.1:6634`.
   Format: `T<idx> px py pz qx qy qz qw`; default poll period is 10 ms.
 - `./vmaster -tN [-gN] [-l] [-n]`: C++ teleop master. `-t`: 0=kida-left,
-  1=kida-right, 2=kida-both, 5=gos10. `-g`: 0=H9, 1=DG5F. `-l` spawns
+  1=kida-right, 2=kida-both, 5=gos10. `-g`: 0=H9, 1=DG5F-M, 2=DG5F-S. `-l` spawns
   `./logger`; `-n` skips Manus glove calibration.
 - `./logger -tN [-gN] [-a cpu-list]` records HDF5 episodes and pins itself to
   CPUs `6-8` by default. Override with `-a 6,7,8` or another CPU list.

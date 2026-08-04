@@ -15,7 +15,7 @@ cd eio && ./build.sh   # eio/ hardware bridge (rs2/·vive/는 각 폴더에서 �
 
 **eio**·**rs2**·**vive**는 각 폴더의 별도 `build.sh`로 **따로** 빌드합니다:
 
-- **eio** — `eio/eio-kida.c`/`eio/eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`는 DGSDK가 설치된 머신에서만 재빌드됩니다. → `cd eio && ./build.sh`
+- **eio** — `eio/eio-kida.c`/`eio/eio-single.c` → `eio/eio-*.so` (실제 하드웨어 CAN/UDP bridge). `eio-dg5f`와 `eio-dg5s`는 DGSDK가 설치된 머신에서만 재빌드됩니다. → `cd eio && ./build.sh`
 - **rs2** — RealSense multicam 도구 (`rs2/msender`, `rs2/mreceiver`, `rs2/videorec`). → `cd rs2 && ./build.sh`
 - **vive** — Vive tracker + Manus teleop (`vive/vmaster`; ManusSDK·SteamVR 필요). → `cd vive && ./build.sh`
 
@@ -46,21 +46,21 @@ uv run python usrsample.py
 Dual-arm:
 
 ```bash
-./kida-run                 # DG5F hand 시뮬레이터
+./kida-run                 # DG-5F-S hand 시뮬레이터 (기본값: -g 2)
 ./kida-run -g 0            # H9 hand 시뮬레이터
-./kida-run -g 1 -l         # DG5F hand headless 시뮬레이터
-./kida-run -g 1 -x         # 실제 KIDA + DG5F hand
-./kida-run -g 1 -x -b      # 실제 KIDA, actuator built-in position controller 사용
-./kida-run -g 1 -v         # TCP pose verbose 출력
+./kida-run -g 1 -l         # DG-5F-M hand headless 시뮬레이터
+./kida-run -g 2 -x         # 실제 KIDA + DG-5F-S hand
+./kida-run -g 2 -x -b      # 실제 KIDA, actuator built-in position controller 사용
+./kida-run -g 2 -v         # TCP pose verbose 출력
 ```
 
 Single-arm:
 
 ```bash
-./single-run -t 0 -g 1     # left arm + DG5F hand 시뮬레이터
-./single-run -t 1 -g 1     # right arm + DG5F hand 시뮬레이터
+./single-run -t 0          # left arm + DG-5F-S hand 시뮬레이터 (기본값: -g 2)
+./single-run -t 1 -g 1     # right arm + DG-5F-M hand 시뮬레이터
 ./single-run -t 0 -g 0 -x  # left arm + H9 hand 실제 하드웨어
-./single-run -t 1 -g 1 -x  # right arm + DG5F hand 실제 하드웨어
+./single-run -t 1 -g 2 -x  # right arm + DG-5F-S hand 실제 하드웨어
 ```
 
 공통 옵션:
@@ -68,7 +68,8 @@ Single-arm:
 | 옵션 | 의미 |
 |---|---|
 | `-g 0` | H9 hand |
-| `-g 1` | DG5F hand |
+| `-g 1` | DG-5F-M hand |
+| `-g 2` | DG-5F-S hand (기본값) |
 | `-x` | 실제 하드웨어 backend 사용 |
 | `-b` | 실제 하드웨어에서 actuator built-in PD/position mode 사용 |
 | `-l` | 시뮬레이터 rendering window 없이 실행 |
@@ -86,7 +87,7 @@ CAN interface를 먼저 올립니다 (helper는 kida 로컬 `can-up`). 장치명
 ./can-up 1
 ```
 
-DG5F hand를 사용할 때는 `kida-run -x` 또는 `single-run -x`가 `eio/eio-dg5f`를 사용합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
+DG-5 hand를 사용할 때 실제 hardware runner는 `-g 1`에서 `eio/eio-dg5f`, `-g 2`에서 `eio/eio-dg5s`를 실행합니다. RealSense camera stream은 별도 프로세스로 실행합니다.
 
 ```bash
 rs2/msender
@@ -139,7 +140,7 @@ rest
 quit
 ```
 
-Hand joint value 개수는 DG5F가 20개, H9가 9개입니다.
+Hand joint value 개수는 DG-5F-M/S가 20개, H9가 9개입니다.
 
 대표 command:
 
@@ -161,12 +162,12 @@ Proprioception 길이는 arm과 선택한 hand type에 따라 달라집니다.
 
 | 실행기 | gripper | 총 float32 개수 |
 |---|---|---:|
-| `kida-run` | DG5F (`-g 1`) | 162 |
+| `kida-run` | DG-5F-M/S (`-g 1`/`-g 2`) | 162 |
 | `kida-run` | H9 (`-g 0`) | 78 |
-| `single-run` | DG5F (`-g 1`) | 81 |
+| `single-run` | DG-5F-M/S (`-g 1`/`-g 2`) | 81 |
 | `single-run` | H9 (`-g 0`) | 39 |
 
-Dual-arm `kida-run -g 1`의 proprioception layout은 다음과 같습니다.
+Dual-arm `kida-run -g 1` 또는 `-g 2`의 proprioception layout은 다음과 같습니다.
 
 | 구간 | 개수 | 내용 |
 |---|---:|---|
@@ -188,26 +189,26 @@ Dual-arm `kida-run -g 1`의 proprioception layout은 다음과 같습니다.
 |---|---|
 | `kida-run`, `kida.py` | Dual-arm 실행기와 controller |
 | `single-run`, `single.py` | 좌/우 한쪽 arm + hand 실행기와 controller |
-| `dg5f.py` | DG5F hand gripper agent |
+| `dg5.py` | DG-5F-M/S 공용 20-joint hand controller |
 | `h9.py` | H9 hand agent (`../fg/h9.py` 복사본) |
 | `usrsample.py` | ZeroMQ client 예제. command 송신, proprioception/camera 수신 |
 | `can-up`, `can-down` | CAN interface bitrate 설정/up 및 down helper |
-| `utils/start` | generic runner 복사본 |
 | `utils/zmqmsg`, `utils/udpmsg` | command 송신 helper |
 | `utils/rcvpp.py` | proprioception subscriber |
-| `utils/tacplot.py`, `utils/tacview.py` | DG5F tactile viewer |
+| `utils/tacplot.py`, `utils/tacview.py` | DG-5 tactile viewer |
 | `yaml/kida.yaml` | Dual-arm robot model |
 | `yaml/kida-left.yaml`, `yaml/kida-right.yaml` | 좌/우 single-arm model |
 | `yaml/h9-left.yaml`, `yaml/h9-right.yaml` | H9 hand model (`../fg/h9/yml/` 복사본) |
-| `yaml/dg5f-left.yaml`, `yaml/dg5f-right.yaml` | DG5F hand model |
+| `yaml/dg5f-left.yaml`, `yaml/dg5f-right.yaml` | DG-5F-M hand model |
+| `yaml/dg5s-left.yaml`, `yaml/dg5s-right.yaml` | DG-5F-S hand model |
 | `yaml/desk1.yaml` | 시뮬레이션 desk scene |
-| `eio/eio-kida.c`, `eio/eio-single.c`, `eio/eio-dg5f.c` | hardware bridge 소스 |
+| `eio/eio-kida.c`, `eio/eio-single.c`, `eio/eio-dg5f.c`, `eio/eio-dg5s.c` | hardware bridge 소스 |
 | `eio/myactcan.h` | MyActuator CAN helper header |
 | `eio/build.sh` | eio 빌드 스크립트 |
 | `eio/eio-kida.so`, `eio/eio-single.so` | 실제 dual/single-arm backend shared library |
-| `eio/eio-dg5f` | DG5F hand hardware bridge |
+| `eio/eio-dg5f`, `eio/eio-dg5s` | DG-5F-M/S hand hardware bridge |
 | `rs2/` | RealSense multicam 송수신/녹화 도구 (`msender`, `mreceiver`, `videorec`) |
-| `vive/` | Vive tracker + Manus teleop 도구 (`vmaster`, `logger`, `player`, `steamvr-run`, `calib/`, `tests/`) |
+| `vive/` | Vive tracker + Manus teleop 도구 (`vmaster`, `logger`, `player`, `steamvr-run`, `calib/`) |
 | `pyproject.toml`, `uv.lock` | uv 환경 (`pytact` PyPI 패키지 포함) |
 
 ## CPU affinity
@@ -221,7 +222,7 @@ Kida 관련 실행기는 제어 주기 흔들림을 줄이기 위해 일부 프�
 | `eio/eio-kida.so` 왼팔 CAN pthread | Linux CPU 1 | `pthread_setaffinity_np`, `tid + 1` |
 | `eio/eio-kida.so` 오른팔 CAN pthread | Linux CPU 2 | `pthread_setaffinity_np`, `tid + 1` |
 | `eio/eio-single.so` | 별도 고정 없음 | runner 프로세스의 affinity를 따름 |
-| `eio/eio-dg5f` real-mode helper | 별도 고정 없음 | fork한 runner 프로세스의 affinity를 상속 |
+| `eio/eio-dg5f`, `eio/eio-dg5s` real-mode helper | 별도 고정 없음 | fork한 runner 프로세스의 affinity를 상속 |
 | `rs2/msender` main/worker threads | 기본 Linux CPU 3-5 | `-a cpu-list`로 override 가능 |
 | `vive/logger` main/writer threads | 기본 Linux CPU 6-8 | `-a cpu-list`로 override 가능 |
 | `vive/steamvr-run`으로 시작/관리되는 Steam/SteamVR 계열 | 기본 Linux CPU 9-11 | `STEAMVR_CPUSET`으로 override 가능 |
@@ -234,8 +235,8 @@ Kida 관련 실행기는 제어 주기 흔들림을 줄이기 위해 일부 프�
 rs2/msender headcam leftcam rightcam              # default: -a 3-5
 rs2/msender headcam leftcam rightcam -a 3-5,15-17
 
-vive/logger -t2 -g1                              # default: -a 6-8
-vive/logger -t2 -g1 -a6-8,18-20
+vive/logger -t2 -g2                              # default: -a 6-8
+vive/logger -t2 -g2 -a6-8,18-20
 
 cd vive
 STEAMVR_CPUSET=9-11 ./steamvr-run

@@ -61,8 +61,8 @@ The main loop snapshots it and runs `RetargetSide` to fill `q[40]`:
 - left hand: `q[0..19]`
 - right hand: `q[20..39]`
 
-Retarget formulas are gripper-specific affine maps in `vmaster.cpp`. The
-relevant slice length is 9 for H9 and 20 for DG5F.
+Retarget formulas are gripper-specific affine maps in `retarget.h`. The
+relevant slice length is 9 for H9 and 20 for DG5F-M/DG5F-S.
 
 Calibration files live in the local `calib/` copy (originals in `../../fg/dev/manus/calib/`). The Manus thread waits until both
 glove IDs are known, then uploads calibration once. `-n` skips this.

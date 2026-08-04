@@ -8,7 +8,7 @@ import tact, single
 def parse_args():
     par = argparse.ArgumentParser()
     par.add_argument('-t', default=-1, type=int, help='arm type [0: left, 1: right]')
-    par.add_argument('-g', default=-1, type=int, help='gripper type [0: h9, 1: dg5f (DG-5F-M), 3: dg5s (DG-5F-S)]')
+    par.add_argument('-g', default=2, type=int, help='gripper type [0: h9, 1: dg5f (DG-5F-M), 2: dg5s (DG-5F-S)]')
     par.add_argument('-x', action='store_true', default=False, help='real')
     par.add_argument('-v', action='store_true', default=False, help='verbose')
     par.add_argument('-b', action='store_true', default=False, help='use built-in pd controller (real h/w only)')
@@ -37,7 +37,7 @@ else: print('choose arm type [0: left, 1: right]'); sys.exit(0)
 # Gripper choice also fixes the TCP mount offsets (hx, hy) used below, since each
 # hand yaml has its own palm origin. dg5s (DG-5F-S) is a separate model rather than
 # a variant of the -M yaml -- shorter links, different palm origin -- but its joint
-# layout is identical, so dg5f.py drives both.
+# layout is identical, so dg5.py drives both.
 # hx is the wrist->palm gap, hy the lateral correction, mirrored by ysign because
 # the mount yaw sign (-90 left / +90 right) flips tcp-y.
 # dg5f: hy=0.0071 cancels a root-origin shift -- both hands' 3 central finger bases
@@ -47,8 +47,8 @@ else: print('choose arm type [0: left, 1: right]'); sys.exit(0)
 # here is 0.05 for dg5f while kida-run uses 0.02 for the same hand and an identical
 # tcp frame -- a pre-existing discrepancy between the two runners, left as is.
 if   arg.g == 0: gname, hx, hy = 'h9',   0.05, 0.0071; import h9 as gmod
-elif arg.g == 1: gname, hx, hy = 'dg5f', 0.05, 0.0071; import dg5f as gmod
-elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5f as gmod
+elif arg.g == 1: gname, hx, hy = 'dg5f', 0.05, 0.0071; import dg5 as gmod
+elif arg.g == 2: gname, hx, hy = 'dg5s', 0.06, 0.015;  import dg5 as gmod
 else: print('wrong gripper type'); sys.exit()
 
 #Frameskip: sim runs physics at 1kHz (dt=0.001) but real HW eio paces at ~240Hz.
