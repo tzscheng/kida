@@ -15,7 +15,7 @@ __pycache__/
 build/
 dist/
 
-# ── 컴파일된 네이티브 바이너리 (build.sh로 재빌드; eio/eio-dg5는 추적 중) ──
+# ── 컴파일된 네이티브 바이너리 ──
 *.so
 *.o
 *.a
