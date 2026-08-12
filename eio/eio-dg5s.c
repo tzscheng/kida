@@ -32,6 +32,11 @@
 static int connected = 0;
 static ReceivedGripperData rgd;
 
+// Latest fingertip tactile frame (5 fingers x 18 taxels, uint16 ADC counts).
+// static => reads before the first frame return zeros, so no "seen" flag is
+// needed. Only the -S tactile sensor writes here; see receive_fingertip_callback.
+static ReceivedFingertipSensorData rfd;
+
 static void connected_callback() {
     connected = 1;
     printf("[CALLBACK] Connected to gripper server.\n");
@@ -44,6 +49,13 @@ static void disconnected_callback() {
 
 static void receive_callback(const ReceivedGripperData data) {
     rgd = data;
+}
+
+// The same callback fires for every fingertip sensor family the SDK knows
+// (force-torque included), and they share one struct. Guard BEFORE the assign:
+// a stray FT frame must not overwrite rfd.tactile with its unrelated bytes.
+static void receive_fingertip_callback(const ReceivedFingertipSensorData data) {
+    if (data.sensorType == DG_SENSOR_TYPE_TACTILE_S) rfd = data;
 }
 
 void print_usage(char* cmd){
@@ -124,6 +136,7 @@ int main(int argc, char* argv[]) {
     CallbackForOnConnected(connected_callback);
     CallbackForOnDisconnected(disconnected_callback);
     CallbackForOnReceivedGripperData(receive_callback);
+    CallbackForOnReceivedFingertipSensorData(receive_fingertip_callback);
 
     //connect to gripper
     result = ConnectToGripper();
@@ -148,7 +161,11 @@ int main(int argc, char* argv[]) {
     GripperSetting gs;
     memset(&gs, 0, sizeof(GripperSetting));
     float zero_array[MAX_JOINT_COUNT] = {0, };
-    int dataTypes[MAX_RECEIVED_DATA_TYPE_COUNT] = {1, 2, 3, 4, 0, 0};
+    // 5 = DEVELOPER_MODE_RECEIVED_DATA_TYPE_FINGER_FT_SENSOR — this array is the
+    // ONLY switch that makes the hand stream fingertip sensor frames at all
+    // (GripperSetting has no sensor-type field). Drop the 5 and the tactile
+    // callback simply never fires, with no error anywhere.
+    int dataTypes[MAX_RECEIVED_DATA_TYPE_COUNT] = {1, 2, 3, 4, 5, 0};
 
     // <-- the one real difference from eio-dg5f.c: the S has its own model IDs.
     if (htype == 0) gs.model = DG_MODEL_DG_5F_S_LEFT;   //0x5F14
@@ -189,6 +206,7 @@ int main(int argc, char* argv[]) {
     float u[20]; //desired joint pos in rad
     float u_deg[20]; //desired joint pos in deg
     float out[60]; //joint pos + vel + cur
+    uint16_t tout[18 * MAX_FINGER_COUNT]; //tactile reply, 90 taxels = 180 bytes
 
     while (1) {
 	ret = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr *)&clnt_addr, (socklen_t*)&len);
@@ -224,6 +242,22 @@ int main(int argc, char* argv[]) {
 	// it. Not part of the eio-kida.so/eio-single.so hot path; it exists for
 	// manual probing (utils/dg5probe).
 	else if (buf[0] == 'R') { /* no motion */ }
+	// 'T' = tactile read: reply with the raw 90 x uint16 block, finger-major
+	// ([f0t0..f0t17, f1t0..f1t17, ...]), then `continue` — it deliberately does
+	// NOT fall through to the 60-float joint block, so the protocol dg5.py and
+	// eio-kida.so speak is untouched. Replies regardless of -r, and replies all
+	// zeros until the first tactile frame lands. The reply goes to the recvfrom()
+	// peer, so a probe on its own socket never steals the arm loop's 'S' answer.
+	else if (buf[0] == 'T') {
+	    memcpy(tout, rfd.tactile, sizeof(tout));
+	    sendto(sockfd, tout, sizeof(tout), 0, (struct sockaddr*)&clnt_addr, sizeof(clnt_addr));
+	    if (verbose == 1) {
+		printf("[tac] f0:%5u f1:%5u f2:%5u f3:%5u f4:%5u (taxel 0 of each finger)\n",
+		       tout[0], tout[18], tout[36], tout[54], tout[72]);
+	    }
+	    cnt++;
+	    continue;
+	}
 	else if (buf[0] == 'Q') break;
 	else { printf("wrong cmd...\n"); continue; }
 
