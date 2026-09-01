@@ -1,0 +1,134 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+# h9-only launcher for the hand bench — replaces the generic `start h9` here.
+# Same shape as kida/single-run (uv shebang, own ZMQ binding, frameskip ZOH,
+# 5-tuple command loop) but drives a single h9 Controller with no arm.
+import sys, os, argparse, ctypes, atexit, numpy as np, zmq
+from collections import deque
+import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
+
+# conf.txt (fopen'd by eio.c relative to cwd), yml/, eio.so and h9.py all live
+# next to this script — anchor cwd and imports here so it runs from anywhere.
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.getcwd())
+import tact, h9
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-t', default=-1, type=int, help='hand type [0: left, 1: right]')
+    par.add_argument('-x', action='store_true', default=False, help='real')
+    par.add_argument('-c', default=0, type=int, help='CAN channel (real only)')
+    par.add_argument('-n', default=None, help='conf.txt entry name (real only; default by -t: L2 left, R2 right)')
+    par.add_argument('-v', action='store_true', default=False, help='verbose')
+    par.add_argument('-d', default=None, help='dispatch file: each line "<step_count> <command>"; fires command when cnt matches')
+    par.add_argument('-l', action='store_true', default=False, help='headless sim (no render window)')
+    return par.parse_args()
+
+def msgproc(msg):
+    global cnt
+    w = msg.decode().split()
+    if not w: return
+    if w[0] == 'quit': env.finish(); sys.exit(0)
+    elif w[0] == 'reset': cnt = 0
+    else: hand.msgproc(w)
+
+
+try: os.sched_setaffinity(0, {0})
+except Exception as e: print('set affinity failed'); sys.exit()
+
+arg = parse_args()
+if   arg.t == 0: ymltail, cname = '-left',  'L2'
+elif arg.t == 1: ymltail, cname = '-right', 'R2'
+else: print('choose hand type [0: left, 1: right]'); sys.exit(0)
+if arg.n is not None: cname = arg.n
+
+#Frameskip: sim runs physics at 1kHz (dt=0.001), controller at 250Hz → 4.
+#Real → 1: eio.c has no pacing sleep, the blocking CAN exchange itself paces
+#the loop at ~250Hz (DT 0.004 in eio.c).
+frameskip = 1 if arg.x else 4
+cnt = 0
+
+if arg.x: #start with real H/w
+    cdll = ctypes.CDLL('./eio.so')
+    cdll.init(b'%d %s' %(arg.c, cname.encode())) #can channel, conf.txt entry
+    # eio.c step() consumes tau (duty) only and ignores q_ref/kp/kd — the h9
+    # firmware has no onboard PD, so has_pd stays False (no -b flag here).
+    env = tact.CEnv(cdll, n_y=h9.Controller.n_y, n_u=h9.Controller.n_u, backend='real', has_pd=False)
+else: #start with tact simulator
+    env = tact.Env('yml/h9%s' %ymltail, render=not arg.l, redraw=16)
+
+ctx = zmq.Context()
+pull = ctx.socket(zmq.PULL)
+pull.bind('ipc:///dev/shm/default')       # same command endpoint as start
+
+ppub = ctx.socket(zmq.PUB)
+ppub.setsockopt(zmq.CONFLATE, 1)
+ppub.bind('ipc:///dev/shm/proprio')       # y = 9 pos + 9 vel float32
+
+# Sensor publish setup — capability-based, same as single-run. The h9 YAMLs
+# declare no cameras/tactiles today, so this normally binds nothing; CEnv
+# (real) has no sim sensor attrs either.
+proprio_update_cycle = 2 if arg.x else 33  # real HW ~125Hz vs sim ~30Hz
+socks = {}
+for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'tactiles', [])):
+    s = ctx.socket(zmq.PUB)
+    s.setsockopt(zmq.CONFLATE, 1)
+    s.bind('ipc:///dev/shm/%s' %c['name'])
+    socks[c['name']] = s
+
+def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
+    if getattr(close_zmq, 'closed', False): return
+    close_zmq.closed = True
+    for s in sockets + [pub, cmd]:
+        try: s.close(linger=0)
+        except Exception: pass
+    try: context.term()
+    except Exception: pass
+close_zmq.closed = False
+atexit.register(close_zmq)
+
+# Optional dispatch: file lines are "<step_count> <command>" — same format as
+# single-run's -d. cnt counts physics ticks (post-frameskip).
+dispatch = deque()
+if arg.d is not None:
+    with open(arg.d) as fin:
+        for line in fin:
+            parts = line.strip().split(maxsplit=1)
+            if len(parts) == 2: dispatch.append([int(parts[0]), parts[1]])
+
+tau = q_ref = qd_ref = kp = kd = None   # held between control ticks (frameskip ZOH)
+
+while True:
+    try: msg = pull.recv(flags=zmq.NOBLOCK)
+    except zmq.ZMQError: pass
+    else: msgproc(msg); continue
+
+    if dispatch and cnt == dispatch[0][0]:
+        msgproc(dispatch[0][1].encode()); print(dispatch[0]); dispatch.popleft()
+
+    # cnt == 0 marks a fresh session (startup or 'reset'): recreate the
+    # controller and reset env. rate = controller ticks/sec, fixed at 240 as in
+    # kida-run/single-run (actual loop is ~250Hz in both modes; the ~4%
+    # wall-clock mismatch is the same accepted one).
+    if cnt == 0:
+        hand = h9.Controller(env, 'yml/h9%s' %ymltail, rate=240, verbose=arg.v)
+        y = env.reset()
+
+    if cnt % frameskip == 0:
+        tau, q_ref, qd_ref, kp, kd = hand.update(y)
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
+
+    #update proprio feedback
+    if cnt % proprio_update_cycle == 0:
+        ppub.send(y.astype(np.float32).tobytes())
+
+    #update camera/tactile feedback (none declared today; kept for parity)
+    if socks:
+        if hasattr(env, 'camera_frames'):
+            for name, buf in env.camera_frames():
+                socks[name].send(buf)
+        if hasattr(env, 'tactile_frames'):
+            for name, buf in env.tactile_frames():
+                socks[name].send(buf)
+
+    cnt += 1
