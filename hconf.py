@@ -1,4 +1,4 @@
-"""Gripper mounting and equivalent-payload configuration.
+"""Hand mounting and equivalent-payload configuration.
 
 The simulator loads the articulated hand model, including its fixed palm body.
 The arm controllers do not, so they use one equivalent rigid payload at the TCP.

@@ -4,7 +4,7 @@ import sys, os, argparse, ctypes, atexit, numpy as np, zmq
 from collections import deque
 import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
 import tact, single
-from gripper import get_hand_mount
+from hconf import get_hand_mount
 
 def parse_args():
     par = argparse.ArgumentParser()

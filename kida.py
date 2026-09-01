@@ -1,6 +1,6 @@
 import numpy as np, tact
 
-from gripper import attach_hand_payload
+from hconf import attach_hand_payload
 
 class Controller:
     n_y = 42 #number of outputs
