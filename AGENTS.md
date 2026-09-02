@@ -91,6 +91,7 @@ The `-b` flag is the single source of truth: it sets both eio's `cmode=1` (so th
 
 ## Subdirectories
 
+- `hands/h9/`, `hands/h12/` — standalone hand bench projects with their own `run-h9` / `run-h12` launchers, controller, YAML models, and hardware bridge.
 - `eio/` — C bridge sources, `myactcan.h`, `build.sh`, built shared libs, and the tracked `eio-dg5f`/`eio-dg5s` helper binaries.
 - `rs2/` — RealSense multicam streamer (`msender`/`mreceiver`/`videorec`; moved here from fg `dev/rs2`, own `AGENTS.md`). Built separately by its own `rs2/build.sh`.
 - `vive/` — Vive tracker + Manus teleop master (`vmaster`; moved here from fg `dev/vive`, own `AGENTS.md`). Built separately by its own `vive/build.sh`; needs ManusSDK (`../../ManusSDK/3.0.1`) and SteamVR.

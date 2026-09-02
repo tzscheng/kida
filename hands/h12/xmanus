@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+#Usage: ./lmsg "message text..."
+import argparse, socket, numpy as np, zmq, time
+
+par = argparse.ArgumentParser()
+par.add_argument('-i', default='127.0.0.1', help='ip address')
+par.add_argument('-p', default=5000, type=int, help='port number')
+par.add_argument('-z', default='', help='zmq access point index') 
+arg, w = par.parse_known_args()
+
+ctx = zmq.Context()
+push = ctx.socket(zmq.PUSH)
+push.connect('ipc:///tmp/zmq%s' %arg.z)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((arg.i, arg.p))
+time.sleep(1.0)
+
+while True:
+    data, addr = sock.recvfrom(1024)
+    s = data.decode('utf-8', errors='ignore')
+    q0 = np.fromstring(s, sep=' ')
+    q = q0.copy()
+    
+    q[0] = 0
+    q[1] = 1.5*(q0[0] + 0.4)
+    q[2] = 1.5*(q0[2] + 0.2)
+    q[3] = 1.5*(q0[3] + 0.2)
+
+    for i in range(len(q)):
+        if q[i] < 0: q[i] = 0.0
+    
+    out = 'xmanus %.3f %.3f %.3f %.3f   %.3f %.3f   %.3f %.3f  %.3f %.3f  %.3f %.3f' %(q[0], q[1], q[2], q[3], q[5], q[6], q[9], q[10], q[13], q[14], q[17], q[18])
+    try: push.send(out.encode(), flags=zmq.NOBLOCK)
+    except zmq.Again: print('message not sent!')
+    
+    print(out)

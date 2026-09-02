@@ -1,0 +1,79 @@
+#abstract: H12 hand (left)
+#date: 2026-3-10
+
+sim: {solver: lcp, dt: 0.001, g: [0, 0, 0]}
+view: {target: [0, 0, 0.1], distance: 0.5, yaw: 0, pitch: 0}
+lights: [{pos: [7, 7, 7], target: [0, 0, 0], ortho: 5.0, shadow: true}]
+
+materials:
+    mat1: {normal: [10000, 50], tangent: [20000, 50, 0.8], spin: [100, 1, 0.02], roll: [100, 1, 0.005]}
+
+bodies:
+  - name: thumb1
+    joint: {type: rev, parent: root, pos: [0.011, 0, 0], euler: [-90, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, 0, 0.01]}
+    shapes: [{type: capsule, pos: [0, 0, -0.01], euler: [0, 0, 0], param: [0.01, 0.01], rgba: [0.3, 0.3, 0.8, 1.0]}]
+
+  - name: thumb2
+    joint: {type: rev, parent: thumb1, pos: [0, 0, -0.02], euler: [90, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.02, 0]}
+    shapes: [{type: capsule, pos: [0, -0.02, 0.015], euler: [55, 0, 0], param: [0.01, 0.025], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: thumb3
+    joint: {type: rev, parent: thumb2, pos: [0, -0.04, 0.03], euler: [30, -90, 90], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.01, 0]}
+    shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: thumb4
+    joint: {type: rev, parent: thumb3, pos: [0, -0.042, 0], q0: 0}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    frames: [{name: tip1, pos: [0, -0.035, 0]}]
+    shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
+
+  - name: index1
+    joint: {type: rev, parent: root, pos: [0, -0.036, 0.060], euler: [-87, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: index2
+    joint: {type: rev, parent: index1, pos: [0, -0.042, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    frames: [{name: tip2, pos: [0, -0.035, 0]}]
+    shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: middle1
+    joint: {type: rev, parent: root, pos: [0, -0.012, 0.065], euler: [-90, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: middle2
+    joint: {type: rev, parent: middle1, pos: [0, -0.042, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    frames: [{name: tip3, pos: [0, -0.035, 0]}]
+    shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: ring1
+    joint: {type: rev, parent: root, pos: [0, 0.012, 0.060], euler: [-93, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: ring2
+    joint: {type: rev, parent: ring1, pos: [0, -0.042, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    frames: [{name: tip4, pos: [0, -0.035, 0]}]
+    shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: little1
+    joint: {type: rev, parent: root, pos: [0, 0.036, 0.055], euler: [-96, 0, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    shapes: [{type: capsule, pos: [0, -0.021, 0], euler: [90, 0, 0], param: [0.01, 0.021], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+  - name: little2
+    joint: {type: rev, parent: little1, pos: [0, -0.042, 0], damping: 0.01}
+    inertial: {mass: 0.05, tensor: [sphere, 0.05], pos: [0, -0.03, 0]}
+    frames: [{name: tip5, pos: [0, -0.035, 0]}]
+    shapes: [{type: capsule, pos: [0, -0.0175, 0], euler: [90, 0, 0], param: [0.01, 0.0175], contact: [0, mat1], rgba: [0.3, 0.3, 0.8, 1.0]}]
+    
+feeds:
+  - jointpos: [thumb1, thumb2, thumb3, thumb4, index1, index2, middle1, middle2, ring1, ring2, little1, little2]
+  - jointvel: [thumb1, thumb2, thumb3, thumb4, index1, index2, middle1, middle2, ring1, ring2, little1, little2]

@@ -1,0 +1,132 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+# h12-only launcher for the hand bench. It drives one h12 Controller without
+# an arm and keeps all paths anchored to this directory.
+import argparse
+import atexit
+import ctypes
+import faulthandler
+import os
+import sys
+
+import zmq
+
+faulthandler.enable()
+
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+sys.path.insert(0, os.getcwd())
+
+import tact
+import h12
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', type=int, default=-1,
+                        help='hand type [0: left, 1: right]')
+    parser.add_argument('-x', action='store_true', help='real hardware')
+    parser.add_argument('-c', type=int, default=0,
+                        help='CAN channel (real only)')
+    parser.add_argument('-u', '--tty', type=int, default=0,
+                        help='Dynamixel /dev/ttyUSB index (real only)')
+    parser.add_argument('-v', action='store_true', help='verbose controller')
+    parser.add_argument('-l', action='store_true',
+                        help='headless sim (no render window)')
+    return parser.parse_args()
+
+
+def msgproc(msg):
+    global cnt
+    words = msg.decode().split()
+    if not words:
+        return
+    if words[0] == 'quit':
+        env.finish()
+        sys.exit(0)
+    if words[0] == 'reset':
+        cnt = 0
+    else:
+        hand.msgproc(words)
+
+
+try:
+    os.sched_setaffinity(0, {0})
+except Exception:
+    print('set affinity failed')
+    sys.exit(1)
+
+arg = parse_args()
+if arg.t == 0:
+    ymltail = '-left'
+elif arg.t == 1:
+    ymltail = '-right'
+else:
+    print('choose hand type [0: left, 1: right]')
+    sys.exit(0)
+
+ymlname = 'yaml/h12%s' % ymltail
+frameskip = 1 if arg.x else 4
+cnt = 0
+
+if arg.x:
+    cdll = ctypes.CDLL('./eio.so')
+    cdll.init(b'%d %d %d' % (arg.c, arg.tty, arg.t))
+    env = tact.CEnv(cdll, n_y=h12.Controller.n_y,
+                    n_u=h12.Controller.n_u, backend='real', has_pd=False)
+else:
+    env = tact.Env(ymlname, render=not arg.l, redraw=16)
+
+ctx = zmq.Context()
+pull = ctx.socket(zmq.PULL)
+pull.bind('ipc:///dev/shm/default')
+
+socks = {}
+for sensor in getattr(env, 'tactiles', []):
+    sock = ctx.socket(zmq.PUB)
+    sock.setsockopt(zmq.CONFLATE, 1)
+    sock.bind('ipc:///dev/shm/%s' % sensor['name'])
+    socks[sensor['name']] = sock
+
+
+def close_zmq(sockets=list(socks.values()), command=pull, context=ctx):
+    if getattr(close_zmq, 'closed', False):
+        return
+    close_zmq.closed = True
+    for sock in sockets + [command]:
+        try:
+            sock.close(linger=0)
+        except Exception:
+            pass
+    try:
+        context.term()
+    except Exception:
+        pass
+
+
+close_zmq.closed = False
+atexit.register(close_zmq)
+
+tau = q_ref = qd_ref = kp = kd = None
+
+while True:
+    try:
+        msg = pull.recv(flags=zmq.NOBLOCK)
+    except zmq.ZMQError:
+        pass
+    else:
+        msgproc(msg)
+        continue
+
+    if cnt == 0:
+        hand = h12.Controller(env, ymlname, rate=240, verbose=arg.v)
+        y = env.reset()
+
+    if cnt % frameskip == 0:
+        tau, q_ref, qd_ref, kp, kd = hand.update(y)
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
+
+    if hasattr(env, 'tactile_frames'):
+        for name, buf in env.tactile_frames():
+            socks[name].send(buf)
+
+    cnt += 1
