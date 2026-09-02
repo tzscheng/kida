@@ -1,1 +1,1 @@
-../../../ongoing/dev/x330/usermod.sh
+sudo usermod -aG dialout $USER
