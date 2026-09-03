@@ -61,26 +61,26 @@ class Controller:
                 duration = int(0.06*self.rate*e_eff) + 1
                 self.trj.target(self.v.reshape((1, 9)), [duration], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         elif self.s == 'zero':
             if self.t == 0: self.trj.target(np.zeros((1, 9)), [1000], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         elif self.s == 'home':
             if self.t == 0: self.trj.target(np.array([[0.7, 0.7, 0.7,   0.3, 0.3,   0.5, 0.5,   0.7, 0.7]]), [1000], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
-
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
+            
         elif self.s == 'ready':
             if self.t == 0: self.trj.target(np.array([[1.2, 0.3, 0.3,   0.8, 0.8,   0.8, 0.8,   0.3, 0.3]]), [1000], q, self.T)
             if self.has_pd: q_ref = self.trj.generate()
-            else:                tau   = self.pid.update(self.trj.generate(), q, qd)
+            else: tau = self.pid.update(self.trj.generate(), q, qd)
 
         if self.verbose:
             deg = q*180/np.pi
             print('[%8d] %6.2f %6.2f %6.2f   %6.2f %6.2f   %6.2f %6.2f   %6.2f %6.2f' %(self.T, deg[0], deg[1], deg[2], deg[3], deg[4], deg[5], deg[6], deg[7], deg[8]))
-
+                    
         self.one_step_forward()
         return tau, q_ref, None, self.kp, self.kd

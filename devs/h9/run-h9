@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run python
 # -*- mode: python -*-
-# h9-only launcher for the hand bench — replaces the generic `start h9` here.
+# h9-only launcher for the hand bench
 # Same shape as kida/single-run (uv shebang, own ZMQ binding, frameskip ZOH,
 # 5-tuple command loop) but drives a single h9 Controller with no arm.
 import sys, os, argparse, ctypes, atexit, zmq
@@ -29,7 +29,6 @@ def msgproc(msg):
     if w[0] == 'quit': env.finish(); sys.exit(0)
     elif w[0] == 'reset': cnt = 0
     else: hand.msgproc(w)
-
 
 try: os.sched_setaffinity(0, {0})
 except Exception as e: print('set affinity failed'); sys.exit()
@@ -94,14 +93,12 @@ while True:
         hand = h9.Controller(env, 'yaml/h9%s' %ymltail, rate=240, verbose=arg.v)
         y = env.reset()
 
-    if cnt % frameskip == 0:
-        tau, q_ref, qd_ref, kp, kd = hand.update(y)
+    if cnt % frameskip == 0: tau, q_ref, qd_ref, kp, kd = hand.update(y)
     y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
 
     #update tactile feedback (none declared today; kept for parity)
     if socks:
         if hasattr(env, 'tactile_frames'):
-            for name, buf in env.tactile_frames():
-                socks[name].send(buf)
+            for name, buf in env.tactile_frames(): socks[name].send(buf)
 
     cnt += 1

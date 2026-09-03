@@ -149,7 +149,7 @@ void init(const char* args) {
 
     else if(type == 'L'){
 	m_dir[0] = -1; m_dir[1] = +1; m_dir[2] = -1; m_dir[3] = +1; m_dir[4] = -1; m_dir[5] = +1; m_dir[6] = -1, m_dir[7] = -1; m_dir[8] = -1;
-	e_dir[0] = +1; e_dir[1] = -1; e_dir[2] = +1; e_dir[3] = -1; e_dir[4] = +1; e_dir[5] = -1; e_dir[6] = +1, e_dir[7] = +1; e_dir[8] = +1;
+        e_dir[0] = +1; e_dir[1] = -1; e_dir[2] = +1; e_dir[3] = -1; e_dir[4] = +1; e_dir[5] = -1; e_dir[6] = +1, e_dir[7] = +1; e_dir[8] = +1;
 	m_idx[0] = 8; m_idx[1] = 7; m_idx[2] = 6; m_idx[3] = 4; m_idx[4] = 5; m_idx[5] = 2; m_idx[6] = 3; m_idx[7] = 0; m_idx[8] = 1;
 	e_idx[0] = 6; e_idx[1] = 7; e_idx[2] = 8; e_idx[3] = 4; e_idx[4] = 5; e_idx[5] = 2; e_idx[6] = 3; e_idx[7] = 0; e_idx[8] = 1;
 	send_id[0] = 0x10; send_id[1] = 0x20; send_id[2] = 0x40;
@@ -198,7 +198,7 @@ int step(double* tau, double* q_ref, double* qd_ref, double* kp, double* kd, dou
     //printf("[%8ld]  %x %x %x    %x %x    %x %x    %x %x |  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d\n", cnt, duty[m_idx[0]], duty[m_idx[1]], duty[m_idx[2]], duty[m_idx[3]], duty[m_idx[4]], duty[m_idx[5]], duty[m_idx[6]], duty[m_idx[7]], duty[m_idx[8]], dpos[e_idx[0]], dpos[e_idx[1]], dpos[e_idx[2]], dpos[e_idx[3]], dpos[e_idx[4]], dpos[e_idx[5]], dpos[e_idx[6]], dpos[e_idx[7]], dpos[e_idx[8]]);
     //printf("[%8ld]  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d |  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d\n", cnt, dpos[e_idx[0]], dpos[e_idx[1]], dpos[e_idx[2]], dpos[e_idx[3]], dpos[e_idx[4]], dpos[e_idx[5]], dpos[e_idx[6]], dpos[e_idx[7]], dpos[e_idx[8]], zpos[e_idx[0]], zpos[e_idx[1]], zpos[e_idx[2]], zpos[e_idx[3]], zpos[e_idx[4]], zpos[e_idx[5]], zpos[e_idx[6]], zpos[e_idx[7]], zpos[e_idx[8]]);
     //printf("[%8ld]  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d |  %5.3f %5.3f %5.3f    %5.3f %5.3f    %5.3f %5.3f    %5.3f %5.3f\n", cnt, zpos[e_idx[0]], zpos[e_idx[1]], zpos[e_idx[2]], zpos[e_idx[3]], zpos[e_idx[4]], zpos[e_idx[5]], zpos[e_idx[6]], zpos[e_idx[7]], zpos[e_idx[8]], q[e_idx[0]], q[e_idx[1]], q[e_idx[2]], q[e_idx[3]], q[e_idx[4]], q[e_idx[5]], q[e_idx[6]], q[e_idx[7]], q[e_idx[8]]);
-    printf("[%8ld]  %5.1f %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f\n", cnt, deg[e_idx[0]], deg[e_idx[1]], deg[e_idx[2]], deg[e_idx[3]], deg[e_idx[4]], deg[e_idx[5]], deg[e_idx[6]], deg[e_idx[7]], deg[e_idx[8]]);
+    //printf("[%8ld]  %5.1f %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f\n", cnt, deg[e_idx[0]], deg[e_idx[1]], deg[e_idx[2]], deg[e_idx[3]], deg[e_idx[4]], deg[e_idx[5]], deg[e_idx[6]], deg[e_idx[7]], deg[e_idx[8]]);
     
     //usleep(2000);
     cnt++;
