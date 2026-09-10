@@ -267,7 +267,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "opencv-python", specifier = ">=4.13" },
-    { name = "pytact", specifier = ">=0.1.1" },
+    { name = "pytact", specifier = ">=0.1.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "pyzmq", specifier = ">=27.1.0" },
     { name = "zstandard", specifier = ">=0.25.0" },
@@ -583,15 +583,15 @@ wheels = [
 
 [[package]]
 name = "pytact"
-version = "0.1.1"
+version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/ac/8c797cc4afecbf9de6446cd7bbaea36f9ff1591967b4c03106d7f3f4440a/pytact-0.1.1.tar.gz", hash = "sha256:d9d691e92fa3dde19a02db275383dfcb9d10f0b8649f210698ec60f9f46993fa", size = 230692, upload-time = "2026-08-31T09:06:40.491Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/22/a0a649317ac1d68783217ea3d37cb8a8b90ce4ee338e9955b13235da98ea/pytact-0.1.2.tar.gz", hash = "sha256:3daea496f4e07dcfe2e173e47586d0ec03d0e342b55f63cd35ace9fdd5014db9", size = 231434, upload-time = "2026-09-09T02:03:08.922Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/ce/6236bee819e6b4c033b094b8e099c2a43ef69079146dd1e654b40ab48fdb/pytact-0.1.1-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0c04592403d283fc49aa5bb19e53fc9c30aae95af13ebb37aa8e8540063300f4", size = 308622, upload-time = "2026-08-31T09:06:38.422Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/82/e5dee7953eca76bf5291719d92158a7ad8c7757204f248d06fd17d3e578f/pytact-0.1.2-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3bf9d0a5e1c504e21ee8ae3ccf723ef5a04feefc8b65ce9fd8726ed1a949dbd7", size = 308719, upload-time = "2026-09-09T02:03:06.858Z" },
 ]
 
 [[package]]
