@@ -6,8 +6,8 @@
 #include <pthread.h>
 #include "sockcan.h"
 
-#define N_DRIVER 1
-//#define N_DRIVER 5
+//#define N_DRIVER 1
+#define N_DRIVER 5
 
 int flag;
 int opcode;
@@ -77,8 +77,8 @@ void* key_thread(void *args) {
 
 int main(int argc, char* argv[]) {
     int i, opt, ch=0;
-    //int send_id[5] = {0x10, 0x20, 0x30, 0x40, 0x50};
-    int send_id[5] = {0x40, 0x20, 0x30, 0x40, 0x50};
+    int send_id[5] = {0x10, 0x20, 0x30, 0x40, 0x50};
+    //int send_id[5] = {0x50, 0x20, 0x30, 0x40, 0x50};
     int recv_id;
     
     while((opt = getopt(argc, (char* const*)argv, "c:")) != -1) {
