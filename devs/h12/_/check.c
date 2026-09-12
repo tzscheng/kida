@@ -13,14 +13,7 @@ int flag;
 int opcode;
 long cnt;
 
-//left hand
-int motor_map[10] = {0, 1, 3, 2, 5, 4, 7, 6, 9, 8};
-int motor_dir[10] = {+1, +1, +1, +1, +1, +1, +1, +1, +1, +1};
-
-//right hand
-//int motor_map[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-//int motor_dir[10] = {+1, +1, +1, +1, +1, +1, +1, +1, +1, +1};
-
+int motor_dir[10]   = {+1, -1, +1, -1, +1, -1, +1, -1, +1, -1};
 int motor;
 int L;
 
@@ -28,7 +21,7 @@ int duty[10];
 int dpos[10];
 int dvel[10];
 int dpos_old[10];
-int dtmp[2];	       
+	       
 
 int getch(void){
     int ch;
@@ -57,16 +50,16 @@ void* key_thread(void *args) {
 	ch = getch();
 
 	switch(ch){
-	case '1': motor = motor_map[0]; L = 0; break;
-	case '2': motor = motor_map[1]; L = 0; break;	    
-	case '3': motor = motor_map[2]; L = 0; break;
-	case '4': motor = motor_map[3]; L = 0; break;
-	case '5': motor = motor_map[4]; L = 0; break;
-	case '6': motor = motor_map[5]; L = 0; break;
-	case '7': motor = motor_map[6]; L = 0; break;
-	case '8': motor = motor_map[7]; L = 0; break;    
-	case '9': motor = motor_map[8]; L = 0; break;
-	case '0': motor = motor_map[9]; L = 0; break;    
+	case '1': motor = 0; L = 0; break;
+	case '2': motor = 1; L = 0; break;	    
+	case '3': motor = 2; L = 0; break;
+	case '4': motor = 3; L = 0; break;
+	case '5': motor = 4; L = 0; break;
+	case '6': motor = 5; L = 0; break;
+	case '7': motor = 6; L = 0; break;
+	case '8': motor = 7; L = 0; break;    
+	case '9': motor = 8; L = 0; break;
+	case '0': motor = 9; L = 0; break;    
 	case '[': L -= 1; break;
 	case ']': L += 1; break;
 	case ' ': L =  0; break;
@@ -120,12 +113,7 @@ int main(int argc, char* argv[]) {
 	for(i = 0; i < N_DRIVER; i++){
 	    //can_send_u16s(fd, send_id[i], duty+2*i, 2);
 	    can_send_u16s(fd, send_id[i], duty+2*i, 2);
-	    
-	    //can_recv_u32s(fd, &recv_id, dpos+2*i, 2);
-	    can_recv_u32s(fd, &recv_id, dtmp, 2);
-	    
-	    dpos[motor_map[2*i]] = dtmp[0];
-	    dpos[motor_map[2*i+1]] = dtmp[1];
+	    can_recv_u32s(fd, &recv_id, dpos+2*i, 2);
 	}
 
 	//int dd[10];

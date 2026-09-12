@@ -17,12 +17,14 @@
 #define ADDR_GOAL_CURRENT           102
 #define ADDR_PRESENT_POSITION       132 
 
+static int flx_motor_map[10] = {1, 0, 3, 2, 5, 4, 7, 6, 9, 8}; //flexion motor map
 static int send_id[N_DRIVER] = {0x10, 0x20, 0x30, 0x40, 0x50};
 
-static int flx_motor_map[10];
-static int encoder_dir[12];
-static int motor_dir[12];
-static int dxl_off[2];
+//right hand case
+static int encoder_dir[12] = {+1, -1,   -1, +1, -1, +1, -1, +1, -1, +1, -1, +1};
+static int motor_dir[12]   = {+1, -1,   -1, +1, -1, +1, -1, +1, -1, +1, -1, +1};
+//static int dxl_off[2] = {1486, 517};
+static int dxl_off[2] = {1486, 1517};
 
 static int dpos[12]; 
 static int duty[10];
@@ -140,23 +142,15 @@ void init(const char* args) {
     
     //left hand case
     if (type == 0){
-	flx_motor_map[0] = 0; flx_motor_map[1] = 1; flx_motor_map[2] = 3; flx_motor_map[3] = 2; flx_motor_map[4] = 5; flx_motor_map[5] = 4; flx_motor_map[6] = 7; flx_motor_map[7] = 6; flx_motor_map[8] = 9; flx_motor_map[9] = 8;
-	motor_dir[0] = -1; motor_dir[1] = 1; motor_dir[2] = 1; motor_dir[3] = 1; motor_dir[4] = 1; motor_dir[5] = 1; motor_dir[6] = 1; motor_dir[7] = 1; motor_dir[8] = 1; motor_dir[9] = 1; motor_dir[10] = 1; motor_dir[11] = 1;
-	encoder_dir[0] = -1; encoder_dir[1] = 1; encoder_dir[2] = 1; encoder_dir[3] = 1; encoder_dir[4] = 1; encoder_dir[5] = 1; encoder_dir[6] = 1; encoder_dir[7] = 1; encoder_dir[8] = 1; encoder_dir[9] = 1; encoder_dir[10] = 1; encoder_dir[11] = 1;
-	dxl_off[0] = 1486;
-	dxl_off[1] = 1540; //517;
-    }
-
-    //right hand case
-    else if(type == 1){
-	flx_motor_map[0] = 0; flx_motor_map[1] = 1; flx_motor_map[2] = 3; flx_motor_map[3] = 2; flx_motor_map[4] = 5; flx_motor_map[5] = 4; flx_motor_map[6] = 7; flx_motor_map[7] = 6; flx_motor_map[8] = 9; flx_motor_map[9] = 8;
-	motor_dir[0] = 1; motor_dir[1] = 1; motor_dir[2] = 1; motor_dir[3] = 1; motor_dir[4] = 1; motor_dir[5] = 1; motor_dir[6] = 1; motor_dir[7] = 1; motor_dir[8] = 1; motor_dir[9] = 1; motor_dir[10] = 1; motor_dir[11] = 1;
-	encoder_dir[0] = 1; encoder_dir[1] = 1; encoder_dir[2] = 1; encoder_dir[3] = 1; encoder_dir[4] = 1; encoder_dir[5] = 1; encoder_dir[6] = 1; encoder_dir[7] = 1; encoder_dir[8] = 1; encoder_dir[9] = 1; encoder_dir[10] = 1; encoder_dir[11] = 1;
+	encoder_dir[0] = -1;
+	encoder_dir[1] = +1;
+	motor_dir[0] = -1;
+	motor_dir[1] = +1;
 	dxl_off[0] = 1486;
 	dxl_off[1] = 517;
     }
-    
-    else {
+
+    else if (type != 1){
 	printf("Hand type=%d should be 0(left) or 1(right)\n", type);
 	exit(1);
     }

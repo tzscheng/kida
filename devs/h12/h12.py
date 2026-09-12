@@ -36,7 +36,7 @@ class Controller:
         self.T += 1
         
     def msgproc(self, w):
-        if w[0] in ['zero', 'home', 'test0']: self.shift(w[0])
+        if w[0] in ['zero', 'home', 'test']: self.shift(w[0])
         elif w[0] in ['joint', 'xmanus']: self.v = np.array(w[1:], dtype=float); self.shift(w[0])
         elif w[0] == 'mcheck': self.v = int(w[1]); self.shift(w[0])
         
@@ -45,19 +45,19 @@ class Controller:
         tau = np.zeros(12)
 
         if self.s == 'zero':
-            if self.t == 0: self.trj1.target(np.zeros((1, 12)), [700], q, self.T)
+            if self.t == 0: self.trj1.target(np.array([[0.0, 0.5, 0.0, 0.0,   0.0, 0.0,  0.0, 0.0,  0.0, 0.0,  0.0, 0.0]]), [700], q, self.T)
             q_d = self.trj1.generate()
             tau = self.pid.update(q_d, q, qd)
 
         elif self.s == 'home':
-            if self.t == 0: self.trj1.target(np.array([[0.5, 1.0, 0.7, 0.7,   0.5, 0.5,  1.0, 1.0,  1.0, 1.0,  1.0, 1.0]]), [700], q, self.T)
+            if self.t == 0: self.trj1.target(np.array([[0.4, 1.0, 0.6, 0.6,   0.5, 0.5,  0.6, 0.6,  0.6, 0.6,  0.6, 0.6]]), [700], q, self.T)
             q_d = self.trj1.generate()
             tau = self.pid.update(q_d, q, qd)
             
-        elif self.s == 'test0':
-            if self.t == 0: self.trj2.target(np.array([[0.05, 0.0, 0.08,   0.03, 0.02, 0.13,   0.03, 0, 0.13,   0.03, -0.02, 0.13,   0.03, -0.04, 0.13]]), [1000], self.m.fk(self.frame, q), self.T)
-            x_d = self.trj2.generate()
-            tau = self.jtc.update(x_d, q, qd) #+ self.m.gravity(q)
+        elif self.s == 'test':
+            if self.t == 0: self.trj1.target(np.array([[-1.7, 2.5, 0.0, 0.0,   0.5, 0.5,   0.0, 0.0,   0.0, 0.0,   0.0, 0.0]]), [1000], q, self.T)
+            q_d = self.trj1.generate()
+            tau = self.pid.update(q_d, q, qd)
 
         elif self.s == 'joint':
             if self.t == 0: self.trj1.target(self.v.reshape((1, 12)), [1000], q, self.T)
@@ -69,10 +69,14 @@ class Controller:
             tau = self.pid.update(self.v, q, qd)
             
         elif self.s == 'mcheck':
-            if self.t < 30: tau[self.v] = 0.1
+            if self.t < 100: tau[self.v] = 0.4
 
         #print(self.m.fk(self.frame, q))   
         #time.sleep(0.1)
+
+        if self.verbose:
+            deg = q*180/np.pi
+            print('[%8d] %6.2f %6.2f %6.2f %6.2f  %6.2f %6.2f  %6.2f %6.2f  %6.2f %6.2f  %6.2f %6.2f' %(self.T, deg[0], deg[1], deg[2], deg[3], deg[4], deg[5], deg[6], deg[7], deg[8], deg[9], deg[10], deg[11]))
         
         self.one_step_forward()
         return tau, None, None, None, None
