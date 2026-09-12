@@ -1,0 +1,19 @@
+#!/bin/bash
+#sudo ip link set can$1 up type can bitrate 1000000 dbitrate 1000000 fd on
+
+#sudo ip link set can$1 mtu 72
+#sudo ip link set can$1 txqueuelen 2000
+#sudo ip link set can$1 up type can bitrate 1000000 sample-point 0.800 sjw 8 dbitrate 1000000 dsample-point 0.800 dsjw 8 fd on
+
+
+
+sudo ip link set can$1 up type can bitrate 1000000 dbitrate 1000000 fd on
+#sudo ip link set can$1 type can bitrate 1000000 sample-point 0.800 dbitrate 1000000 dsample-point 0.800 sjw 4 dsjw 4 fd on
+
+
+
+#sudo ip link set can$1 up type can bitrate 1000000 sample-point 0.800 sjw 1 dbitrate 1000000 dsample-point 0.800 dsjw 1 fd on
+
+#sudo ip link set can$1 up type can bitrate 1000000 dbitrate 1000000 fd on brs off
+
+#sudo ip link set can$1 up
