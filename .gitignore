@@ -34,6 +34,7 @@ dist/
 *.avi
 *.gif
 *.log
+log.txt
 *.pid
 *.json
 *.h5

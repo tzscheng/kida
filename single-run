@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run python
 # -*- mode: python -*-
-import sys, os, argparse, ctypes, atexit, numpy as np, zmq
+# socket / threading: 아래 실물 택타일 폴링 스레드(UDP)용.
+import sys, os, argparse, ctypes, atexit, socket, threading, numpy as np, zmq
 from collections import deque
 import faulthandler; faulthandler.enable() #dump C/Python backtrace on SIGSEGV
 import tact, single
@@ -82,10 +83,54 @@ for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'tactiles', [])):
     if c.get('port'): s.bind('tcp://0.0.0.0:%d' %c['port'])  # remote clients (LAN)
     socks[c['name']] = s
 
+# ---- 실물 DG-5F-S 지문 택타일 (2026-09-08 복원) --------------------------
+# kida-run 과 같은 이유로 빠져 있던 블록입니다. 이 러너는 손이 하나뿐이라
+# 90 float32 한 장만 내보내고, 포트도 -t 로 정해집니다(6660+t). 원본 주석 그대로.
+# 'tactile' channel — real DG-5F-S hardware only (-x -g 2). proprio-style: ONE
+# fixed-layout channel, no name prefix. It is NOT part of the per-sensor 'socks'
+# namespace above, which is left untouched (sim keeps publishing one channel per
+# YAML tactile as before).
+#   [0:90] this runner's one hand: thumb, index, middle, ring, little (18 each)
+#   => 90 x float32 little-endian, no header. Layout documented in usrsample.py.
+# Which side this is depends on -t and is NOT marked in the payload — same
+# contract 'proprio' already has here. Source is the eio-dg5s relay's 'T' reply
+# (90 x uint16), polled on its own thread: a blocking recv must never sit in the
+# 240Hz control loop. Values are raw ADC counts with a nonzero no-touch baseline,
+# NOT physical force units — scale/zero policy belongs to the consumer.
+# Not wired for sim (tactile sensing there is not trusted yet) and not for -g 0/1
+# (h9 declares no tactiles; the -M declares a single 16-taxel sensor, so the fixed
+# 90-float layout would not hold).
+tac_stop, tac_thread, tpub = threading.Event(), None, None
+if arg.x and arg.g == 2:
+    tpub = ctx.socket(zmq.PUB)
+    tpub.setsockopt(zmq.CONFLATE, 1)
+    tpub.bind('ipc:///dev/shm/tactile')   # local clients
+    tpub.bind('tcp://0.0.0.0:5560')       # remote clients (LAN)
+
+    def tactile_poll(pub=tpub, stop=tac_stop, port=6660 + arg.t):  # eio-single.c:68
+        # The relay answers to the recvfrom() peer, so this never collides with
+        # eio-single.so's 240Hz 'S' traffic to the same port.
+        us = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        us.settimeout(0.05)
+        while not stop.is_set():
+            try:
+                us.sendto(b'T', ('127.0.0.1', port))
+                raw, _ = us.recvfrom(4096)
+            except OSError: raw = b''
+            if len(raw) == 180:                     # 90 x uint16
+                try: pub.send(np.frombuffer(raw, dtype='<u2').astype(np.float32).tobytes())
+                except zmq.ZMQError: break          # socket closed at shutdown
+            stop.wait(1.0/60)                       # dg5s YAML fps: 60
+        us.close()
+    tac_thread = threading.Thread(target=tactile_poll, daemon=True)
+    tac_thread.start()
+
 def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
     if getattr(close_zmq, 'closed', False): return
     close_zmq.closed = True
-    for s in sockets + [pub, cmd]:
+    tac_stop.set()                        # stop the poll thread before its socket dies
+    if tac_thread is not None: tac_thread.join(timeout=0.3)
+    for s in sockets + [pub, cmd] + ([tpub] if tpub is not None else []):
         try: s.close(linger=0)
         except Exception: pass
     try: context.term()

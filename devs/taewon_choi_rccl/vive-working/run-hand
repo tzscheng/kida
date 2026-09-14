@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# hand-run 은 저장소 루트에서 돌아야 합니다:
+#   - yaml/ 을 상대경로로 읽고 dg5 / h9 를 import 합니다
+#   - uv run 은 cwd에서 위로 올라가며 가장 가까운 pyproject.toml을 쓰는데,
+#     여기서 바로 실행하면 kida-gui 전용 pyproject(pytact 없음)가 잡혀
+#     'ModuleNotFoundError: No module named tact' 로 죽습니다.
+# 그래서 이 폴더에서도 쓸 수 있도록 루트로 cd 한 뒤 넘겨 줍니다.
+#   ./run-hand -g 2 -t 2
+# cwd만 옮기면 부족합니다. python의 sys.path[0]은 cwd가 아니라 스크립트가 있는
+# 디렉터리(=여기)라서 dg5 / h9 를 못 찾습니다. 루트를 PYTHONPATH로 얹습니다.
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$ROOT"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+exec uv run python devs/taewon_choi_rccl/vive-working/hand-run "$@"

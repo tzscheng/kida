@@ -64,8 +64,12 @@ The main loop snapshots it and runs `RetargetSide` to fill `q[40]`:
 Retarget formulas are gripper-specific affine maps in `retarget.h`. The
 relevant slice length is 9 for H9 and 20 for DG5F-M/DG5F-S.
 
-Calibration files live in the local `calib/` copy (originals in `../../fg/dev/manus/calib/`). The Manus thread waits until both
-glove IDs are known, then uploads calibration once. `-n` skips this.
+Calibration files live in `calib/pN/{left,right}.mcal`, picked by `-pN`. `calib/` is resolved
+next to the BINARY (`/proc/self/exe`), not the cwd — kida-gui spawns vmaster with cwd=<repo root>,
+where `./calib` would not exist. `KIDA_CALIB_DIR` overrides it. The Manus thread waits until both
+glove IDs are known, then uploads calibration once. `-p0` (the default, and what the old `-n` did) uploads
+nothing — note that this is not a reset: the glove keeps whatever a previous run wrote into it, since
+`CoreSdk_SetGloveCalibration()` writes to the hardware. `-pN` with a missing folder fails at startup.
 
 (The Python sibling `tests/vmaster.py` and the `pymanus` pybind11 module it
 imported were retired to `~/Desktop/manus-backup/`.)

@@ -20,9 +20,8 @@
 //   /  randomize   r  rest      ESC quit       z/x  jaw +/-
 //   q  quit        c  log on/off  a  toggle ee_attach  b  toggle hand_attach  h home  i init+home
 
-#include "ManusSDK.h"
-#include "ManusSDKTypes.h"
 #include "openvr/openvr.h"
+#include "manus.h"
 #include "retarget.h"
 
 #include <zmq.h>
@@ -39,6 +38,7 @@
 #include <cstring>
 #include <deque>
 #include <fstream>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -67,30 +67,26 @@ namespace {
 constexpr const char* kSlaveEndpoint  = "ipc:///dev/shm/default";
 constexpr const char* kLoggerEndpoint = "ipc:///dev/shm/logger";
 
-constexpr int   kManusSleepMs   = 10;
 constexpr int   kLoopPeriodMs   = 33;        // ~30 Hz teleop
 
-constexpr const char* kCalibDir   = "./calib";
-constexpr const char* kLeftCalib  = "donghyukLeftMetaglove.mcal";
-constexpr const char* kRightCalib = "donghyukRightMetaglove.mcal";
+// Sticky bias — on detach ('a'), remember where the arm was left so the next
+// attach resumes from there instead of snapping back to the home bias.
+// Convenient at a terminal, but wrong for the GUI's record loop: 'i' (init)
+// sends the arm home *without* touching bias, so the next attach yanks it back
+// to the pre-init pose. build.sh compiles this file twice — plain `vmaster`
+// keeps the sticky behavior, `vmaster-gui` (-DVMASTER_GUI) drops it so every
+// attach resumes from the home bias. kida-gui.py launches the latter.
+#ifdef VMASTER_GUI
+constexpr bool kStickyBias = false;
+#else
+constexpr bool kStickyBias = true;
+#endif
 
 // ============================================================================
 // shared state
 // ============================================================================
 
 std::atomic<bool> g_exit{false};
-
-std::atomic<bool>     g_manus_connected{false};
-std::atomic<uint32_t> g_manus_leftId{0};
-std::atomic<uint32_t> g_manus_rightId{0};
-std::atomic<bool>     g_manus_calibLoaded{false};
-std::atomic<bool>     g_manus_skipCalib{false};
-
-std::mutex g_manus_mutex;
-bool       g_manus_have_left  = false;
-bool       g_manus_have_right = false;
-float      g_manus_left_joints[20]  = {0};
-float      g_manus_right_joints[20] = {0};
 
 // ============================================================================
 // 4x4 / 3x3 row-major matrix helpers (replaces tact.T_*, np.linalg.inv)
@@ -217,156 +213,16 @@ void RotationToEulerXYZ(const Mat3& R, double& rx, double& ry, double& rz)
 }
 
 // ============================================================================
-// Manus side (background thread)
-// ============================================================================
-
-void OnManusConnected(const ManusHost* const)
-{
-    CoreSdk_SetRawSkeletonHandMotion(HandMotion_Auto);
-    g_manus_connected.store(true);
-}
-
-void OnManusDisconnected(const ManusHost* const)
-{
-    g_manus_connected.store(false);
-}
-
-void OnManusLandscape(const Landscape* const land)
-{
-    if (!land) return;
-    uint32_t leftId = 0, rightId = 0;
-    for (uint32_t i = 0; i < land->gloveDevices.gloveCount; ++i) {
-        const GloveLandscapeData& g = land->gloveDevices.gloves[i];
-        if (leftId  == 0 && g.side == Side::Side_Left)  leftId  = g.id;
-        if (rightId == 0 && g.side == Side::Side_Right) rightId = g.id;
-    }
-    g_manus_leftId.store(leftId);
-    g_manus_rightId.store(rightId);
-}
-
-void UpdateManusGlobals(const ErgonomicsData& d, bool isLeft)
-{
-    const int   t_DataOffset = isLeft ? 0 : 20;
-    const float kDeg2Rad     = static_cast<float>(M_PI / 180.0);
-
-    float joints[20];
-    for (int finger = 0; finger < 5; ++finger) {
-        const int base = t_DataOffset + finger * 4;
-        joints[finger * 4 + 0] = d.data[base + 0] * kDeg2Rad;
-        joints[finger * 4 + 1] = d.data[base + 1] * kDeg2Rad;
-        joints[finger * 4 + 2] = d.data[base + 2] * kDeg2Rad;
-        joints[finger * 4 + 3] = d.data[base + 3] * kDeg2Rad;
-    }
-
-    std::lock_guard<std::mutex> lk(g_manus_mutex);
-    if (isLeft) {
-        std::memcpy(g_manus_left_joints, joints, sizeof(joints));
-        g_manus_have_left = true;
-    } else {
-        std::memcpy(g_manus_right_joints, joints, sizeof(joints));
-        g_manus_have_right = true;
-    }
-}
-
-void OnManusErgonomics(const ErgonomicsStream* const ergo)
-{
-    if (!ergo) return;
-    const uint32_t L = g_manus_leftId.load();
-    const uint32_t R = g_manus_rightId.load();
-    for (uint32_t i = 0; i < ergo->dataCount; ++i) {
-        const ErgonomicsData& d = ergo->data[i];
-        if (d.isUserID) continue;
-        if (d.id == L && L != 0) UpdateManusGlobals(d, true);
-        if (d.id == R && R != 0) UpdateManusGlobals(d, false);
-    }
-}
-
-bool LoadOneCalib(uint32_t id, const std::string& fn)
-{
-    if (id == 0) return false;
-    const std::string path = std::string(kCalibDir) + "/" + fn;
-    std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f) { std::fprintf(stderr, "[calib] not found: %s\n", path.c_str()); return false; }
-    const std::streamsize sz = f.tellg();
-    if (sz <= 0) { std::fprintf(stderr, "[calib] empty: %s\n", path.c_str()); return false; }
-    f.seekg(0, std::ios::beg);
-    std::vector<unsigned char> bytes(static_cast<size_t>(sz));
-    if (!f.read(reinterpret_cast<char*>(bytes.data()), sz)) return false;
-
-    SetGloveCalibrationReturnCode r;
-    const SDKReturnCode rc = CoreSdk_SetGloveCalibration(id, bytes.data(), static_cast<uint32_t>(sz), &r);
-    if (rc != SDKReturnCode::SDKReturnCode_Success) {
-        std::fprintf(stderr, "[calib] set failed: %s rc=%d res=%d\n", fn.c_str(), (int)rc, (int)r);
-        return false;
-    }
-    std::fprintf(stderr, "[calib] loaded '%s' into glove 0x%x (%lld bytes)\n", path.c_str(), id, static_cast<long long>(sz));
-    return true;
-}
-
-bool InitManusSdk()
-{
-    if (CoreSdk_InitializeIntegrated() != SDKReturnCode::SDKReturnCode_Success) {
-        std::fprintf(stderr, "InitializeIntegrated failed\n"); return false;
-    }
-    if (CoreSdk_RegisterCallbackForOnConnect(OnManusConnected) != SDKReturnCode::SDKReturnCode_Success || CoreSdk_RegisterCallbackForOnDisconnect(OnManusDisconnected) != SDKReturnCode::SDKReturnCode_Success || CoreSdk_RegisterCallbackForLandscapeStream(OnManusLandscape) != SDKReturnCode::SDKReturnCode_Success || CoreSdk_RegisterCallbackForErgonomicsStream(OnManusErgonomics) != SDKReturnCode::SDKReturnCode_Success) {
-        std::fprintf(stderr, "register callbacks failed\n"); return false;
-    }
-
-    CoordinateSystemVUH vuh;
-    CoordinateSystemVUH_Init(&vuh);
-    vuh.handedness = Side::Side_Right;
-    vuh.up         = AxisPolarity::AxisPolarity_PositiveZ;
-    vuh.view       = AxisView::AxisView_XToViewer;
-    vuh.unitScale  = 1.0f;
-    if (CoreSdk_InitializeCoordinateSystemWithVUH(vuh, true) != SDKReturnCode::SDKReturnCode_Success) {
-        std::fprintf(stderr, "InitializeCoordinateSystemWithVUH failed\n"); return false;
-    }
-
-    ManusHost empty;
-    ManusHost_Init(&empty);
-    if (CoreSdk_ConnectToHost(empty) != SDKReturnCode::SDKReturnCode_Success) {
-        std::fprintf(stderr, "ConnectToHost failed\n"); return false;
-    }
-    return true;
-}
-
-void ManusThreadFn()
-{
-    if (!InitManusSdk()) {
-        std::fprintf(stderr, "[manus] init failed; thread exiting\n");
-        return;
-    }
-    while (!g_exit.load()) {
-        if (!g_manus_skipCalib.load() && g_manus_connected.load() && !g_manus_calibLoaded.load()) {
-            const uint32_t L = g_manus_leftId.load();
-            const uint32_t R = g_manus_rightId.load();
-            if (L != 0 || R != 0) {
-                LoadOneCalib(L, kLeftCalib);
-                LoadOneCalib(R, kRightCalib);
-                g_manus_calibLoaded.store(true);
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kManusSleepMs));
-    }
-    CoreSdk_ShutDown();
-}
-
-// ============================================================================
 // Glove retargeting (was glove_retarget_task in python)
 // ============================================================================
-// Pure RetargetSide() lives in retarget.h so a future binary can share it.
+// Pure RetargetSide() lives in retarget.h and the glove reader in manus.h, so
+// vhand shares both without pulling in OpenVR.
 
 void RetargetAll(int g, float* q)
 {
     float L[20] = {0}, R[20] = {0};
     bool haveL = false, haveR = false;
-    {
-        std::lock_guard<std::mutex> lk(g_manus_mutex);
-        haveL = g_manus_have_left;
-        haveR = g_manus_have_right;
-        if (haveL) std::memcpy(L, g_manus_left_joints,  sizeof(L));
-        if (haveR) std::memcpy(R, g_manus_right_joints, sizeof(R));
-    }
+    manus::Snapshot(L, R, haveL, haveR);
     if (g == 0) {
         if (haveL) RetargetSide_h9(L, q);
         if (haveR) RetargetSide_h9(R, q + 20);
@@ -528,7 +384,7 @@ void DrawBorder(WINDOW* w, const char* title)
 
 void DrawStatus(int t, bool ee_attach, bool hand_attach, bool log_on, long cnt, int last_key)
 {
-    DrawBorder(g_winStatus, "STATUS");
+    DrawBorder(g_winStatus, kStickyBias ? "STATUS" : "STATUS (gui: bias=home)");
     char keybuf[16];
     if      (last_key < 0)             std::snprintf(keybuf, sizeof(keybuf), "-");
     else if (last_key == 27)           std::snprintf(keybuf, sizeof(keybuf), "ESC");
@@ -733,12 +589,20 @@ struct Args {
     int  t = -1;
     int  g = -1;
     bool l = false;
-    bool n = false;
+    int  p = 0;          // -pN calibration profile (0 = upload nothing)
 };
 
 void PrintUsage(const char* prog)
 {
-    std::fprintf(stderr, "usage: %s -tN [-gN] [-l] [-n]\n  -tN   operation: 0=kida-left  1=kida-right  2=kida(both)  5=gos10\n  -gN   gripper:   0=H9  1=DG5F-M  2=DG5F-S\n  -l    also start ./logger\n  -n    skip Manus glove calibration (use SDK defaults)\n", prog);
+    std::fprintf(stderr,
+        "usage: %s -tN [-gN] [-l] [-pN]\n"
+        "  -tN   operation: 0=kida-left  1=kida-right  2=kida(both)  5=gos10\n"
+        "  -gN   gripper:   0=H9  1=DG5F-M  2=DG5F-S\n"
+        "  -l    also start ./logger\n"
+        "  -pN   glove calibration profile from calib/pN/ (default 0)\n"
+        "        0=upload nothing (keeps what is already in the glove)\n"
+        "        1=Lee Donghyuk  2=Choi Taewon  -- see calib/README.md\n"
+        "        (this replaces the old -n, which is now the default)\n", prog);
 }
 
 bool ParseArgs(int argc, char** argv, Args& a)
@@ -748,21 +612,21 @@ bool ParseArgs(int argc, char** argv, Args& a)
 
     opterr = 0;
     int opt;
-    while ((opt = getopt(argc, argv, "t:g:lnh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:g:lp:h")) != -1) {
         switch (opt) {
             case 't':
-            case 'g': {
+            case 'g':
+            case 'p': {
                 char* end = nullptr;
                 const long v = std::strtol(optarg, &end, 10);
                 if (end == optarg || *end != '\0') {
                     std::fprintf(stderr, "invalid -%c value: %s\n", opt, optarg);
                     return false;
                 }
-                (opt == 't' ? a.t : a.g) = static_cast<int>(v);
+                (opt == 't' ? a.t : opt == 'g' ? a.g : a.p) = static_cast<int>(v);
                 break;
             }
             case 'l': a.l = true; break;
-            case 'n': a.n = true; break;
             case 'h': PrintUsage(argv[0]); std::exit(0);
             default:
                 if (optopt) std::fprintf(stderr, "unrecognized or invalid option: -%c\n", optopt);
@@ -794,6 +658,18 @@ int main(int argc, char** argv)
 {
     Args arg;
     if (!ParseArgs(argc, argv, arg)) return 64;
+    // Validate -pN before anything else touches the terminal or ZMQ: this only
+    // stats files, and the upload itself does not happen until a glove connects
+    // on the background thread — so without this a typo'd number would sail
+    // past and leave the glove on whatever the last run wrote (see manus.h).
+    {
+        std::string err;
+        if (!manus::CheckProfile(arg.p, &err)) {
+            std::fprintf(stderr, "[calib] -p%d: %s\n", arg.p, err.c_str());
+            return 64;
+        }
+    }
+
     if (arg.t < 0) {
         std::fprintf(stderr, "choose operation type (-tN)\n");
         PrintUsage(argv[0]);
@@ -824,9 +700,16 @@ int main(int argc, char** argv)
     // arg.g == -1: arm-only mode
 
     // 1. Manus thread (replaces UDP receiver)
-    g_manus_skipCalib.store(arg.n);
+    manus::SetProfile(arg.p);
     std::thread manusThread;
-    if (arg.g >= 0) manusThread = std::thread(ManusThreadFn);
+    if (arg.g >= 0) manusThread = std::thread(manus::ThreadFn, std::cref(g_exit));
+    // Say which profile is in play. p0 is not a reset — it inherits whatever the
+    // previous run wrote into the glove — so it has to be visible, not implied.
+    PushLogLine(arg.p == 0
+           ? std::string("[calib] p0: uploading nothing — glove keeps its current "
+                         "calibration (possibly from an earlier run)")
+           : "[calib] p" + std::to_string(arg.p) + ": calib/p" +
+             std::to_string(arg.p) + "/{left,right}.mcal");
 
     // 2. Optionally spawn ./logger.
     char tflag[16], gflag[16];
@@ -1001,18 +884,24 @@ int main(int argc, char** argv)
                 bool was_attached = ee_attach;
                 ee_attach = !ee_attach;
                 if (was_attached) {
-                    // detach: save current output xyz/rpy so re-attach resumes from here;
-                    // also reset offset/R_off so the displayed pose stays at the saved bias.
+                    // detach: re-anchor the tracker origin so the displayed pose
+                    // stays at bias. With kStickyBias, bias first moves to where
+                    // the arm actually is, so re-attach resumes from there; the
+                    // GUI build skips that and keeps the home bias (see above).
                     if (arg.t == 0 || arg.t == 2 || arg.t == 5) {
-                        bias[0][0] = xyz[0][0]; bias[0][1] = xyz[0][1]; bias[0][2] = xyz[0][2];
+                        if (kStickyBias) {
+                            bias[0][0] = xyz[0][0]; bias[0][1] = xyz[0][1]; bias[0][2] = xyz[0][2];
+                            R_bias[0] = R_out[0];
+                        }
                         offset[0][0] = -_xyz[0][0]; offset[0][1] = -_xyz[0][1]; offset[0][2] = -_xyz[0][2];
-                        R_bias[0] = R_out[0];
                         R_off[0]  = Mat3Mul(Mat3Transpose(R_m_cur[0]), R_bias[0]);
                     }
                     if (arg.t == 1 || arg.t == 2) {
-                        bias[1][0] = xyz[1][0]; bias[1][1] = xyz[1][1]; bias[1][2] = xyz[1][2];
+                        if (kStickyBias) {
+                            bias[1][0] = xyz[1][0]; bias[1][1] = xyz[1][1]; bias[1][2] = xyz[1][2];
+                            R_bias[1] = R_out[1];
+                        }
                         offset[1][0] = -_xyz[1][0]; offset[1][1] = -_xyz[1][1]; offset[1][2] = -_xyz[1][2];
-                        R_bias[1] = R_out[1];
                         R_off[1]  = Mat3Mul(Mat3Transpose(R_m_cur[1]), R_bias[1]);
                     }
                 } else {

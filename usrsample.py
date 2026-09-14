@@ -44,6 +44,19 @@ while True:
         # - right-hand joint vel(20)
         # - right-hand joint current(20)
         # => total 162 * np.float32
+        #(with -g 0 the hands are h9: 9 joints each, so the total is 78 instead)
+
+        #'tactile' is a separate channel with the same style of fixed layout,
+        #published only on real DG-5F-S hardware (kida-run -x -g 2):
+        #  'tcp://%s:5560' %SERVER  or  'ipc:///dev/shm/tactile'
+        # - left-hand  fingertip taxels(90): thumb, index, middle, ring, little
+        # - right-hand fingertip taxels(90): same finger order
+        # => total 180 * np.float32, 18 taxels per finger, no header
+        #single-run publishes only its own hand => 90 * np.float32; which side it
+        #is depends on -t, the payload carries no marker (same as 'proprio').
+        #Values are raw ADC counts with a nonzero no-touch baseline, not physical
+        #force units. In sim this channel does not exist; the per-sensor channels
+        #'hand1.<finger>_fingertip_taxel' etc. are the sim-side equivalent.
 
         #print first five per one second
         if cnt%30 == 0: print('proprioception: %6.2f %6.2f %6.2f %6.2f %6.2f ...' %(proprio[0], proprio[1], proprio[2], proprio[3], proprio[4]))

@@ -1,0 +1,148 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+"""hand-run — 손만 띄우는 tact 시뮬레이터. 리타게팅(vive/retarget.h) 확인용.
+
+kida-run / single-run 은 팔 컨트롤러가 필수이고 손은 TCP에 붙는 구조라, 손 관절
+매핑만 보고 싶어도 14(또는 7)축 팔과 IK가 통째로 딸려옵니다. 이 러너는 손 YAML
+하나(또는 좌우 한 쌍)만 로드해서 dg5/h9 컨트롤러에 붙입니다. 팔도, IK도, 실물
+하드웨어 경로도 없습니다 — 순수하게 "이 joint 명령이 손을 어떤 모양으로
+만드는가"만 봅니다.
+
+    ./hand-run                       # DG-5F-S 양손, 심
+    ./hand-run -g 1 -t 0             # DG-5F-M 왼손만
+    cd vive && ./vhand -g 2 -t 2     # 다른 터미널: 글러브 -> retarget.h -> 여기
+
+vive/vhand 가 짝입니다. -g / -t 는 양쪽이 같아야 합니다: -t 가 명령 문자열의
+콤마 파트 수를 정하기 때문입니다.
+
+IPC 는 kida-run 과 같은 규약을 따르되 팔 파트가 빠집니다:
+
+  PULL ipc:///dev/shm/default   — 명령. 최상위 'quit'/'reset' 은 여기서 처리하고,
+      나머지는 ','로 잘라 손 컨트롤러(-t2 면 왼손, 오른손)에 그대로 넘깁니다.
+      파트가 하나 더 들어오면 맨 앞을 팔 파트로 보고 버립니다 — vmaster 나
+      `vhand -A` 가 보내는 "none, joint ..., joint ..." 를 그대로 받기 위한 것.
+  PUB  ipc:///dev/shm/proprio   — y (float32). 손 하나당 60개(pos/vel/current).
+  PUB  ipc:///dev/shm/<sensor>  — YAML 에 선언된 tactile 프레임 (dg5s 만 해당).
+
+엔드포인트를 kida-run 과 공유하므로 둘을 동시에 띄울 수는 없습니다 (bind 충돌).
+"""
+import sys, os, argparse, atexit, numpy as np, zmq
+import tact
+
+def parse_args():
+    par = argparse.ArgumentParser()
+    par.add_argument('-g', default=2, type=int, help='gripper type [0: h9, 1: dg5f (DG-5F-M), 2: dg5s (DG-5F-S)]')
+    par.add_argument('-t', default=2, type=int, help='side [0: left, 1: right, 2: both]')
+    par.add_argument('-s', default=0.25, type=float, help='both-hand 배치 간격 (m)')
+    par.add_argument('-v', action='store_true', default=False, help='verbose')
+    par.add_argument('-l', action='store_true', default=False, help='headless sim (no render window)')
+    return par.parse_args()
+
+arg = parse_args()
+if   arg.g == 0: gname = 'h9';   import h9  as gmod
+elif arg.g == 1: gname = 'dg5f'; import dg5 as gmod
+elif arg.g == 2: gname = 'dg5s'; import dg5 as gmod
+else: print('wrong gripper type'); sys.exit()
+if arg.t not in (0, 1, 2): print('wrong side type'); sys.exit()
+
+# 어느 손을 몇 개 띄우는지. -t2 면 (왼손, 오른손) 순서 — 명령의 콤마 파트 순서와
+# proprio 의 블록 순서가 모두 이 순서를 따릅니다.
+sides = ['left', 'right'] if arg.t == 2 else (['left'] if arg.t == 0 else ['right'])
+
+# 첫 손이 씬의 루트 모델, 나머지는 add(). 손 YAML 은 g:[0,0,0] (무중력) 이라
+# 팔 없이도 그대로 떠 있습니다.
+env = tact.Env('yaml/%s-%s' % (gname, sides[0]), render=not arg.l, redraw=16)
+for i, side in enumerate(sides[1:], start=1):
+    env.add('yaml/%s-%s' % (gname, side), prefix='hand%d.' % (i + 1), offset=[0, -arg.s * i, 0, 0, 0, 0])
+if len(sides) > 1:
+    # 두 손 가운데를 보도록 카메라만 옮깁니다 (view = [tx, ty, tz, dist, yaw, pitch]).
+    env.m.view = [0, -arg.s * (len(sides) - 1) / 2, 0.05, 0.6, 0, 10]
+
+# 심은 물리 1kHz(dt=0.001), 컨트롤러는 4틱마다 = 250Hz. kida-run 과 같은
+# frameskip/rate 조합이라 궤적 길이가 그쪽과 동일하게 보입니다.
+frameskip = 4
+cnt = 0
+
+def msgproc(msg):
+    global cnt
+    w = [s.split() for s in msg.decode().split(',')]
+    if w[0][0] == 'quit': env.finish(); sys.exit(0)
+    elif w[0][0] == 'reset': cnt = 0; return
+    # 파트가 손 개수보다 하나 많으면 맨 앞은 팔 파트 — vmaster / `vhand -A` 호환.
+    if len(w) == len(hands) + 1: w = w[1:]
+    if len(w) != len(hands): print('wrong command'); return
+    for h, wi in zip(hands, w): h.msgproc(wi)
+
+ctx = zmq.Context()
+pull = ctx.socket(zmq.PULL)
+pull.bind('ipc:///dev/shm/default')       # local clients
+pull.bind('tcp://0.0.0.0:5555')           # remote clients (LAN)
+
+ppub = ctx.socket(zmq.PUB)
+ppub.setsockopt(zmq.CONFLATE, 1)
+ppub.bind('ipc:///dev/shm/proprio')       # local clients
+ppub.bind('tcp://0.0.0.0:5556')           # remote clients (LAN)
+
+# YAML 선언 센서(dg5s 의 지문 tactile)를 kida-run 과 같은 방식으로 퍼블리시.
+socks = {}
+for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'tactiles', [])):
+    s = ctx.socket(zmq.PUB)
+    s.setsockopt(zmq.CONFLATE, 1)
+    s.bind('ipc:///dev/shm/%s' % c['name'])
+    if c.get('port'): s.bind('tcp://0.0.0.0:%d' % c['port'])
+    socks[c['name']] = s
+
+def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
+    if getattr(close_zmq, 'closed', False): return
+    close_zmq.closed = True
+    for s in sockets + [pub, cmd]:
+        try: s.close(linger=0)
+        except Exception: pass
+    try: context.term()
+    except Exception: pass
+close_zmq.closed = False
+atexit.register(close_zmq)
+
+# kida-run 과 같은 결합 규칙: 전부 None 이면 None, 아니면 None 자리를 0으로 채워
+# 이어붙입니다. 게인 채널도 0으로 채우므로 그 손의 PD 항은 정확히 0이 됩니다.
+def combine(parts, sizes):
+    if all(p is None for p in parts): return None
+    return np.concatenate([p if p is not None else np.zeros(s) for p, s in zip(parts, sizes)])
+
+hands = []
+tau = q_ref = qd_ref = kp = kd = None   # frameskip 사이에 유지 (ZOH)
+
+while True:
+    try: msg = pull.recv(flags=zmq.NOBLOCK)
+    except zmq.ZMQError: pass
+    else: msgproc(msg); continue
+
+    if cnt == 0:
+        # rate=240 은 kida-run 과 동일 (실물 eio 페이싱 기준). 심은 실제로 250Hz라
+        # 궤적이 4% 빨리 끝나지만 그쪽과 같은 오차라 비교에 지장이 없습니다.
+        hands = [gmod.Controller(env, 'yaml/%s-%s' % (gname, side),
+                                 prefix='' if i == 0 else 'hand%d.' % (i + 1),
+                                 rate=240, verbose=arg.v)
+                 for i, side in enumerate(sides)]
+        y = env.reset()
+
+    if cnt % frameskip == 0:
+        outs, off = [], 0
+        for h in hands:
+            outs.append(h.update(y[off:off + h.n_y])); off += h.n_y
+        sizes  = [h.n_u for h in hands]
+        tau    = combine([o[0] for o in outs], sizes)
+        q_ref  = combine([o[1] for o in outs], sizes)
+        qd_ref = combine([o[2] for o in outs], sizes)
+        kp     = combine([o[3] for o in outs], sizes)
+        kd     = combine([o[4] for o in outs], sizes)
+    y = env.step(tau=tau, q_ref=q_ref, qd_ref=qd_ref, kp=kp, kd=kd)
+
+    if cnt % 33 == 0:                      # ~30Hz, 심 기준 (kida-run 과 동일)
+        ppub.send(y.astype(np.float32).tobytes())
+
+    if socks and hasattr(env, 'tactile_frames'):
+        for name, buf in env.tactile_frames():
+            socks[name].send(buf)
+
+    cnt += 1

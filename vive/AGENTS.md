@@ -22,9 +22,11 @@ SteamVR must already be running.
 
 - `~/ongoing/dev/vive/vive-udp [-tN]`: minimal tracker pose UDP streamer to `127.0.0.1:6634`.
   Format: `T<idx> px py pz qx qy qz qw`; default poll period is 10 ms.
-- `./vmaster -tN [-gN] [-l] [-n]`: C++ teleop master. `-t`: 0=kida-left,
+- `./vmaster -tN [-gN] [-l] [-pN]`: C++ teleop master. `-t`: 0=kida-left,
   1=kida-right, 2=kida-both, 5=gos10. `-g`: 0=H9, 1=DG5F-M, 2=DG5F-S. `-l` spawns
-  `./logger`; `-n` skips Manus glove calibration.
+  `./logger`; `-pN` selects the glove calibration profile in `calib/pN/`
+  (0=none, the old `-n` default; 1=Lee Donghyuk, 2=Choi Taewon; see `calib/README.md`).
+  A missing profile is a hard error at startup, not a silent skip.
 - `./logger -tN [-gN] [-a cpu-list]` records HDF5 episodes and pins itself to
   CPUs `6-8` by default. Override with `-a 6,7,8` or another CPU list.
 
@@ -57,7 +59,9 @@ The `q[40]` hand layout is part of the wire contract:
 
 Retarget coefficients live in `vmaster.cpp`/`retarget.h`; do not repack this
 layout without coordinating slave/logger consumers. Calibration files are read
-from the local `calib/` copy (originals in `../../fg/dev/manus/calib/`); `-n` skips calibration.
+from `calib/pN/{left,right}.mcal`, selected by `-pN` (default 0 = upload nothing,
+which is what the old `-n` did). Glove-reading itself now lives in `manus.h`,
+shared with `devs/taewon_choi_rccl/vive-working/vhand`.
 
 ## Conventions
 

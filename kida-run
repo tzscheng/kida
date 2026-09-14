@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run python
 # -*- mode: python -*-
-import sys, os, argparse, ctypes, atexit, numpy as np, zmq
+# socket / threading: 아래 실물 택타일 폴링 스레드(UDP)용.
+import sys, os, argparse, ctypes, atexit, socket, threading, numpy as np, zmq
 from collections import deque
 import tact, kida #, dg5f as gmod
 from hconf import get_hand_mount
@@ -86,10 +87,63 @@ for c in list(getattr(env, 'cameras', [])) + list(getattr(env, 'tactiles', [])):
     if c.get('port'): s.bind('tcp://0.0.0.0:%d' %c['port'])  # remote clients (LAN)
     socks[c['name']] = s
 
+# ---- 실물 DG-5F-S 지문 택타일 (2026-09-08 복원) --------------------------
+# /media/.../kida-imitation-learning/kida-controller 에는 있는데 이 저장소에는
+# 빠져 있던 블록입니다. 이게 없으면 -x -g 2 로 띄워도 ipc:///dev/shm/tactile 로
+# 아무것도 나가지 않아서 kida-gui 의 택타일 창이 계속 비어 있습니다
+# (kida-gui.py 의 TAC_EP 가 이 채널입니다). 원본 주석을 그대로 옮겼습니다.
+# 'tactile' channel — real DG-5F-S hardware only (-x -g 2). proprio-style: ONE
+# fixed-layout channel, no name prefix, hands told apart by index order, exactly
+# like 'proprio'. It is NOT part of the per-sensor 'socks' namespace above, which
+# is left untouched (sim keeps publishing one channel per YAML tactile as before).
+#   [  0: 90] left  hand: thumb, index, middle, ring, little  (18 taxels each)
+#   [ 90:180] right hand: same finger order
+#   => 180 x float32 little-endian, no header. Layout documented in usrsample.py.
+# Source is the eio-dg5s relay's 'T' reply (90 x uint16 per hand), polled on its
+# own thread: a blocking recv must never sit in the 240Hz control loop. Values are
+# raw ADC counts with a nonzero no-touch baseline, NOT the physical force units a
+# sim contact report would carry — scale/zero policy belongs to the consumer.
+# Not wired for sim (tactile sensing there is not trusted yet) and not for -g 0/1
+# (h9 declares no tactiles; the -M declares a single 16-taxel sensor, so the fixed
+# 180-float layout would not hold).
+tac_stop, tac_thread, tpub = threading.Event(), None, None
+if arg.x and arg.g == 2:
+    tpub = ctx.socket(zmq.PUB)
+    tpub.setsockopt(zmq.CONFLATE, 1)
+    tpub.bind('ipc:///dev/shm/tactile')   # local clients
+    tpub.bind('tcp://0.0.0.0:5560')       # remote clients (LAN)
+
+    def tactile_poll(pub=tpub, stop=tac_stop):
+        # One UDP socket per hand: a reply can never be attributed to the wrong
+        # hand, and a silent hand costs only its own timeout. The relay answers
+        # to the recvfrom() peer, so this never collides with eio-kida.so's 'S'.
+        us = [socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for _ in range(2)]
+        for u in us: u.settimeout(0.05)
+        frame = np.zeros(180, dtype=np.float32)
+        while not stop.is_set():
+            fresh = False
+            for h, u in enumerate(us):
+                try:
+                    u.sendto(b'T', ('127.0.0.1', 6660 + h))
+                    raw, _ = u.recvfrom(4096)
+                except OSError: continue            # skip this hand, still poll the other
+                if len(raw) != 180: continue        # 90 x uint16 expected
+                frame[h*90:(h+1)*90] = np.frombuffer(raw, dtype='<u2')
+                fresh = True
+            if fresh:
+                try: pub.send(frame.tobytes())
+                except zmq.ZMQError: break          # socket closed at shutdown
+            stop.wait(1.0/60)                       # dg5s YAML fps: 60
+        for u in us: u.close()
+    tac_thread = threading.Thread(target=tactile_poll, daemon=True)
+    tac_thread.start()
+
 def close_zmq(sockets=list(socks.values()), pub=ppub, cmd=pull, context=ctx):
     if getattr(close_zmq, 'closed', False): return
     close_zmq.closed = True
-    for s in sockets + [pub, cmd]:
+    tac_stop.set()                        # stop the poll thread before its socket dies
+    if tac_thread is not None: tac_thread.join(timeout=0.3)
+    for s in sockets + [pub, cmd] + ([tpub] if tpub is not None else []):
         try: s.close(linger=0)
         except Exception: pass
     try: context.term()
