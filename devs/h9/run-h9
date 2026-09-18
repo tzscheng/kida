@@ -19,7 +19,6 @@ def parse_args():
     par.add_argument('-c', default=0, type=int, help='CAN channel (real only)')
     par.add_argument('-n', default=None, help='conf.txt entry name (real only; default by -t: L2 left, R2 right)')
     par.add_argument('-v', action='store_true', default=False, help='verbose')
-    par.add_argument('-l', action='store_true', default=False, help='headless sim (no render window)')
     return par.parse_args()
 
 def msgproc(msg):
@@ -52,7 +51,7 @@ if arg.x: #start with real H/w
     # firmware has no onboard PD, so has_pd stays False (no -b flag here).
     env = tact.CEnv(cdll, n_y=h9.Controller.n_y, n_u=h9.Controller.n_u, backend='real', has_pd=False)
 else: #start with tact simulator
-    env = tact.Env('yaml/h9%s' %ymltail, render=not arg.l, redraw=16)
+    env = tact.Env('yaml/h9%s' %ymltail, render=True, redraw=16)
 
 ctx = zmq.Context()
 pull = ctx.socket(zmq.PULL)
