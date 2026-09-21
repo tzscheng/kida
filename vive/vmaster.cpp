@@ -13,6 +13,7 @@
 // CLI:
 //   -tN   operation type: 0=kida-left, 1=kida-right, 2=kida(both), 5=gos10
 //   -gN   gripper type:   0=H9, 1=DG5F-M, 2=DG5F-S, 3=H12
+//   -bN   base station:   1=front (default), 2=30 degrees left
 //   -l    also start ./logger
 //   -n    skip Manus glove calibration (use SDK defaults)
 //
@@ -133,6 +134,15 @@ Mat4 T_rot_x(double t)
     const double c = std::cos(t), s = std::sin(t);
     M(T, 1, 1) =  c; M(T, 1, 2) = -s;
     M(T, 2, 1) =  s; M(T, 2, 2) =  c;
+    return T;
+}
+
+Mat4 T_rot_y(double t)
+{
+    Mat4 T = MatIdentity();
+    const double c = std::cos(t), s = std::sin(t);
+    M(T, 0, 0) =  c; M(T, 0, 2) =  s;
+    M(T, 2, 0) = -s; M(T, 2, 2) =  c;
     return T;
 }
 
@@ -542,16 +552,16 @@ void DrawStatus(int t, bool ee_attach, bool hand_attach, bool log_on, long cnt, 
     wnoutrefresh(g_winStatus);
 }
 
-void DrawVive(int t, double xyz[2][3], double rpy[2][3], double rpy_raw[2][3], double jawpos)
+void DrawVive(int t, double xyz[2][3], double rpy[2][3], double xyz_raw[2][3], double rpy_raw[2][3], double jawpos)
 {
-    DrawBorder(g_winVive, "VIVE 6D POSE");
+    DrawBorder(g_winVive, "VIVE 6D POSE (XYZ-RPY)");
     if (t == 0 || t == 1) {
-        mvwprintw(g_winVive, 1, 2, "%s  %7.3f %7.3f %7.3f   %7.3f %7.3f %7.3f   [ %7.3f %7.3f %7.3f ]", t == 0 ? "L" : "R", xyz[t][0], xyz[t][1], xyz[t][2], rpy[t][0], rpy[t][1], rpy[t][2], rpy_raw[t][0], rpy_raw[t][1], rpy_raw[t][2]);
+        mvwprintw(g_winVive, 1, 2, "%s  xyz:%6.3f %6.3f %6.3f   rpy:%6.3f %6.3f %6.3f   abs-xyz:%6.3f %6.3f %6.3f   abs-rpy:%6.3f %6.3f %6.3f", t == 0 ? "L" : "R", xyz[t][0], xyz[t][1], xyz[t][2], rpy[t][0], rpy[t][1], rpy[t][2], xyz_raw[t][0], xyz_raw[t][1], xyz_raw[t][2], rpy_raw[t][0], rpy_raw[t][1], rpy_raw[t][2]);
     } else if (t == 2) {
-        mvwprintw(g_winVive, 1, 2, "L  %7.3f %7.3f %7.3f   %7.3f %7.3f %7.3f   [ %7.3f %7.3f %7.3f ]", xyz[0][0], xyz[0][1], xyz[0][2], rpy[0][0], rpy[0][1], rpy[0][2], rpy_raw[0][0], rpy_raw[0][1], rpy_raw[0][2]);
-        mvwprintw(g_winVive, 2, 2, "R  %7.3f %7.3f %7.3f   %7.3f %7.3f %7.3f   [ %7.3f %7.3f %7.3f ]", xyz[1][0], xyz[1][1], xyz[1][2], rpy[1][0], rpy[1][1], rpy[1][2], rpy_raw[1][0], rpy_raw[1][1], rpy_raw[1][2]);
+        mvwprintw(g_winVive, 1, 2, "L  xyz:%6.3f %6.3f %6.3f   rpy:%6.3f %6.3f %6.3f   abs-xyz:%6.3f %6.3f %6.3f   abs-rpy:%6.3f %6.3f %6.3f", xyz[0][0], xyz[0][1], xyz[0][2], rpy[0][0], rpy[0][1], rpy[0][2], xyz_raw[0][0], xyz_raw[0][1], xyz_raw[0][2], rpy_raw[0][0], rpy_raw[0][1], rpy_raw[0][2]);
+        mvwprintw(g_winVive, 2, 2, "R  xyz:%6.3f %6.3f %6.3f   rpy:%6.3f %6.3f %6.3f   abs-xyz:%6.3f %6.3f %6.3f   abs-rpy:%6.3f %6.3f %6.3f", xyz[1][0], xyz[1][1], xyz[1][2], rpy[1][0], rpy[1][1], rpy[1][2], xyz_raw[1][0], xyz_raw[1][1], xyz_raw[1][2], rpy_raw[1][0], rpy_raw[1][1], rpy_raw[1][2]);
     } else if (t == 5) {
-        mvwprintw(g_winVive, 1, 2, "   %7.3f %7.3f %7.3f   %7.3f %7.3f %7.3f   [ %7.3f %7.3f %7.3f ]   jaw=%5.3f", xyz[0][0], xyz[0][1], xyz[0][2], rpy[0][0], rpy[0][1], rpy[0][2], rpy_raw[0][0], rpy_raw[0][1], rpy_raw[0][2], jawpos);
+        mvwprintw(g_winVive, 1, 2, "   xyz:%6.3f %6.3f %6.3f   rpy:%6.3f %6.3f %6.3f   abs-xyz:%6.3f %6.3f %6.3f   abs-rpy:%6.3f %6.3f %6.3f   jaw=%5.3f", xyz[0][0], xyz[0][1], xyz[0][2], rpy[0][0], rpy[0][1], rpy[0][2], xyz_raw[0][0], xyz_raw[0][1], xyz_raw[0][2], rpy_raw[0][0], rpy_raw[0][1], rpy_raw[0][2], jawpos);
     }
     wnoutrefresh(g_winVive);
 }
@@ -735,13 +745,14 @@ bool IsChildAlive(pid_t pid, const char* name)
 struct Args {
     int  t = -1;
     int  g = -1;
+    int  b = 1;
     bool l = false;
     bool n = false;
 };
 
 void PrintUsage(const char* prog)
 {
-    std::fprintf(stderr, "usage: %s -tN [-gN] [-l] [-n]\n  -tN   operation: 0=kida-left  1=kida-right  2=kida(both)  5=gos10\n  -gN   gripper:   0=H9  1=DG5F-M  2=DG5F-S  3=H12\n  -l    also start ./logger\n  -n    skip Manus glove calibration (use SDK defaults)\n", prog);
+    std::fprintf(stderr, "usage: %s -tN [-gN] [-bN] [-l] [-n]\n  -tN   operation:    0=kida-left  1=kida-right  2=kida(both)  5=gos10\n  -gN   gripper:      0=H9  1=DG5F-M  2=DG5F-S  3=H12\n  -bN   base station: 1=front (default)  2=30 degrees left\n  -l    also start ./logger\n  -n    skip Manus glove calibration (use SDK defaults)\n", prog);
 }
 
 bool ParseArgs(int argc, char** argv, Args& a)
@@ -751,17 +762,20 @@ bool ParseArgs(int argc, char** argv, Args& a)
 
     opterr = 0;
     int opt;
-    while ((opt = getopt(argc, argv, "t:g:lnh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:g:b:lnh")) != -1) {
         switch (opt) {
             case 't':
-            case 'g': {
+            case 'g':
+            case 'b': {
                 char* end = nullptr;
                 const long v = std::strtol(optarg, &end, 10);
                 if (end == optarg || *end != '\0') {
                     std::fprintf(stderr, "invalid -%c value: %s\n", opt, optarg);
                     return false;
                 }
-                (opt == 't' ? a.t : a.g) = static_cast<int>(v);
+                if      (opt == 't') a.t = static_cast<int>(v);
+                else if (opt == 'g') a.g = static_cast<int>(v);
+                else                 a.b = static_cast<int>(v);
                 break;
             }
             case 'l': a.l = true; break;
@@ -776,6 +790,10 @@ bool ParseArgs(int argc, char** argv, Args& a)
     if (optind < argc) {
         std::fprintf(stderr, "unexpected positional: %s\n", argv[optind]);
         PrintUsage(argv[0]);
+        return false;
+    }
+    if (a.b != 1 && a.b != 2) {
+        std::fprintf(stderr, "invalid -b value: %d (expected 1 or 2)\n", a.b);
         return false;
     }
     return true;
@@ -961,7 +979,14 @@ int main(int argc, char** argv)
     int    last_key = -1;
 
     // Precompute T01 (world-of-HMD-base -> world-of-robot) once.
-    const Mat4 T01 = MatMul(MatMul(T_trans(1.2, 0, 0), T_rot_z(M_PI / 2.0)), T_rot_x(M_PI / 2.0));
+    Mat4 T01;
+    if (arg.b == 1) {
+        // Channel 1 base station directly in front of the user.
+        T01 = MatMul(MatMul(T_trans(1.2, 0, 0), T_rot_z(M_PI / 2.0)), T_rot_x(M_PI / 2.0));
+    } else {
+        // Channel 1 base station 30 degrees to the user's left.
+        T01 = MatMul(MatMul(MatMul(T_trans(1.2, 0, 0), T_rot_z(M_PI / 2.0)), T_rot_x(M_PI / 2.0)), T_rot_y(M_PI / 6.0));
+    }
 
     std::printf("[main] running, ESC or Ctrl-C to stop\n");
 
@@ -1180,7 +1205,7 @@ int main(int argc, char** argv)
         }
 
         DrawStatus(arg.t, ee_attach, hand_attach, log_on, cnt, last_key);
-        DrawVive(arg.t, xyz, rpy, rpy_raw, jawpos);
+        DrawVive(arg.t, xyz, rpy, _xyz, rpy_raw, jawpos);
         DrawManus(arg.t, n_joint, q);
         DrawLog();
         doupdate();

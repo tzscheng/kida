@@ -12,6 +12,11 @@ cd "$(dirname "$0")"
 MANUS_DIR="../../ManusSDK/3.1.1"
 OPENVR_LIB_DIR="${OPENVR_LIB_DIR:-$HOME/.local/share/Steam/steamapps/common/SteamVR/bin/linux64}"
 
+#minimal OpenVR tracker pose reader
+g++ -O2 -g -std=c++17 -W -Wall -o getpose getpose.cpp \
+    -I. \
+    -L"$OPENVR_LIB_DIR" -lopenvr_api -Wl,-rpath,"$OPENVR_LIB_DIR"
+
 #vive + manus teleop master (zmq PUSH to slave/logger)
 g++ -O2 -g -std=c++17 -W -Wall -o vmaster vmaster.cpp \
     -I"$MANUS_DIR/include" -I. \
