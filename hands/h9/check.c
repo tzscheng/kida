@@ -210,10 +210,10 @@ int main(int argc, char* argv[]) {
 	//radian => deg
 	for(i = 0; i < 9; i++) deg[i] = 180.0*q[i]/M_PI;
 
-	printf("[%8ld]  %x %x %x    %x %x    %x %x    %x %x |  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d\n", cnt, duty[m_idx[0]], duty[m_idx[1]], duty[m_idx[2]], duty[m_idx[3]], duty[m_idx[4]], duty[m_idx[5]], duty[m_idx[6]], duty[m_idx[7]], duty[m_idx[8]], dpos[e_idx[0]], dpos[e_idx[1]], dpos[e_idx[2]], dpos[e_idx[3]], dpos[e_idx[4]], dpos[e_idx[5]], dpos[e_idx[6]], dpos[e_idx[7]], dpos[e_idx[8]]);
+	//printf("[%8ld]  %x %x %x    %x %x    %x %x    %x %x |  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d\n", cnt, duty[m_idx[0]], duty[m_idx[1]], duty[m_idx[2]], duty[m_idx[3]], duty[m_idx[4]], duty[m_idx[5]], duty[m_idx[6]], duty[m_idx[7]], duty[m_idx[8]], dpos[e_idx[0]], dpos[e_idx[1]], dpos[e_idx[2]], dpos[e_idx[3]], dpos[e_idx[4]], dpos[e_idx[5]], dpos[e_idx[6]], dpos[e_idx[7]], dpos[e_idx[8]]);
 	//printf("[%8ld]  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d |  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d\n", cnt, dpos[e_idx[0]], dpos[e_idx[1]], dpos[e_idx[2]], dpos[e_idx[3]], dpos[e_idx[4]], dpos[e_idx[5]], dpos[e_idx[6]], dpos[e_idx[7]], dpos[e_idx[8]], zpos[e_idx[0]], zpos[e_idx[1]], zpos[e_idx[2]], zpos[e_idx[3]], zpos[e_idx[4]], zpos[e_idx[5]], zpos[e_idx[6]], zpos[e_idx[7]], zpos[e_idx[8]]);
         //printf("[%8ld]  %5d %5d %5d    %5d %5d    %5d %5d    %5d %5d |  %5.3f %5.3f %5.3f    %5.3f %5.3f    %5.3f %5.3f    %5.3f %5.3f\n", cnt, zpos[e_idx[0]], zpos[e_idx[1]], zpos[e_idx[2]], zpos[e_idx[3]], zpos[e_idx[4]], zpos[e_idx[5]], zpos[e_idx[6]], zpos[e_idx[7]], zpos[e_idx[8]], q[e_idx[0]], q[e_idx[1]], q[e_idx[2]], q[e_idx[3]], q[e_idx[4]], q[e_idx[5]], q[e_idx[6]], q[e_idx[7]], q[e_idx[8]]);
-	//printf("[%8ld]  %5.1f %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f\n", cnt, deg[e_idx[0]], deg[e_idx[1]], deg[e_idx[2]], deg[e_idx[3]], deg[e_idx[4]], deg[e_idx[5]], deg[e_idx[6]], deg[e_idx[7]], deg[e_idx[8]]);
+	printf("[%8ld]  %5.1f %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f    %5.1f %5.1f\n", cnt, deg[e_idx[0]], deg[e_idx[1]], deg[e_idx[2]], deg[e_idx[3]], deg[e_idx[4]], deg[e_idx[5]], deg[e_idx[6]], deg[e_idx[7]], deg[e_idx[8]]);
 	
 	usleep(2000);
 	for(i = 0; i < 9; i++) dpos_old[i] = dpos[i];
