@@ -6,8 +6,8 @@
 #include <pthread.h>
 #include "sockcan.h"
 
-//#define N_DRIVER 1
-#define N_DRIVER 5
+#define N_DRIVER 1
+//#define N_DRIVER 5
 
 int flag;
 int opcode;
@@ -128,10 +128,8 @@ int main(int argc, char* argv[]) {
 	//int dd[10];
 	//for(i = 0; i < 10; i++) dd[i] = dpos[i] - dpos_old[i];
 	
-	//printf("[%8ld:%d:%d]  %5x %5x %5x %5x| %5d %5d %5d %5d | %5d %5d %5d %5d\n", cnt, motor, L, duty[0], duty[1], duty[2], duty[3], dpos[0], dpos[1], dpos[2], dpos[3], dd[0], dd[1], dd[2], dd[3]);
-	//printf("[%8ld:%d:%d]  %5x %5x %5x %5x %5x %5x| %5d %5d %5d %5d %5d %5d\n", cnt, motor, L, duty[0], duty[1], duty[2], duty[3], duty[4], duty[5], dpos[0], dpos[1], dpos[2], dpos[3], dpos[4], dpos[5]);
-	//printf("[%8ld:%d:%d]  %5x %5x %5x %5x %5x %5x %5x %5x| %5d %5d %5d %5d %5d %5d %5d %5d\n", cnt, motor, L, duty[0], duty[1], duty[2], duty[3], duty[4], duty[5], duty[6], duty[7], dpos[0], dpos[1], dpos[2], dpos[3], dpos[4], dpos[5], dpos[6], dpos[7]);
-	printf("[%8ld:%d:%d]  %5x %5x %5x %5x %5x %5x %5x %5x %5x %5x| %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d\n", cnt, motor, L, duty[0], duty[1], duty[2], duty[3], duty[4], duty[5], duty[6], duty[7], duty[8], duty[9], dpos[0], dpos[1], dpos[2], dpos[3], dpos[4], dpos[5], dpos[6], dpos[7], dpos[8], dpos[9]);
+	printf("[%8ld:%d:%d]  %5x %5x | %5d %5d \n", cnt, motor, L, duty[0], duty[1], dpos[0], dpos[1]);
+	//printf("[%8ld:%d:%d]  %5x %5x %5x %5x %5x %5x %5x %5x %5x %5x| %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d\n", cnt, motor, L, duty[0], duty[1], duty[2], duty[3], duty[4], duty[5], duty[6], duty[7], duty[8], duty[9], dpos[0], dpos[1], dpos[2], dpos[3], dpos[4], dpos[5], dpos[6], dpos[7], dpos[8], dpos[9]);
 	
 	for(i = 0; i < 10; i++) dpos_old[i] = dpos[i];
 	cnt++;

@@ -1,2 +1,0 @@
-#!/bin/bash
-sudo ip link set can$1 down
