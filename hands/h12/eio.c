@@ -144,16 +144,17 @@ void init(const char* args) {
 	motor_dir[0] = -1; motor_dir[1] = 1; motor_dir[2] = 1; motor_dir[3] = 1; motor_dir[4] = 1; motor_dir[5] = 1; motor_dir[6] = 1; motor_dir[7] = 1; motor_dir[8] = 1; motor_dir[9] = 1; motor_dir[10] = 1; motor_dir[11] = 1;
 	encoder_dir[0] = -1; encoder_dir[1] = 1; encoder_dir[2] = 1; encoder_dir[3] = 1; encoder_dir[4] = 1; encoder_dir[5] = 1; encoder_dir[6] = 1; encoder_dir[7] = 1; encoder_dir[8] = 1; encoder_dir[9] = 1; encoder_dir[10] = 1; encoder_dir[11] = 1;
 	dxl_off[0] = 1486;
-	dxl_off[1] = 1540; //517;
+	dxl_off[1] = 1540;
     }
 
     //right hand case
     else if(type == 1){
-	flx_motor_map[0] = 0; flx_motor_map[1] = 1; flx_motor_map[2] = 3; flx_motor_map[3] = 2; flx_motor_map[4] = 5; flx_motor_map[5] = 4; flx_motor_map[6] = 7; flx_motor_map[7] = 6; flx_motor_map[8] = 9; flx_motor_map[9] = 8;
+	//flx_motor_map[0] = 0; flx_motor_map[1] = 1; flx_motor_map[2] = 3; flx_motor_map[3] = 2; flx_motor_map[4] = 5; flx_motor_map[5] = 4; flx_motor_map[6] = 7; flx_motor_map[7] = 6; flx_motor_map[8] = 9; flx_motor_map[9] = 8;
+	flx_motor_map[0] = 0; flx_motor_map[1] = 1; flx_motor_map[2] = 2; flx_motor_map[3] = 3; flx_motor_map[4] = 4; flx_motor_map[5] = 5; flx_motor_map[6] = 6; flx_motor_map[7] = 7; flx_motor_map[8] = 8; flx_motor_map[9] = 9;
 	motor_dir[0] = 1; motor_dir[1] = -1; motor_dir[2] = 1; motor_dir[3] = 1; motor_dir[4] = 1; motor_dir[5] = 1; motor_dir[6] = 1; motor_dir[7] = 1; motor_dir[8] = 1; motor_dir[9] = 1; motor_dir[10] = 1; motor_dir[11] = 1;
 	encoder_dir[0] = 1; encoder_dir[1] = -1; encoder_dir[2] = 1; encoder_dir[3] = 1; encoder_dir[4] = 1; encoder_dir[5] = 1; encoder_dir[6] = 1; encoder_dir[7] = 1; encoder_dir[8] = 1; encoder_dir[9] = 1; encoder_dir[10] = 1; encoder_dir[11] = 1;
-	dxl_off[0] = 1486;
-	dxl_off[1] = 2500;
+	dxl_off[0] = 1520;
+	dxl_off[1] = 2510;
     }
     
     else {
