@@ -1,0 +1,3 @@
+/minimal
+*.log
+!/libultimate-tracker.so
