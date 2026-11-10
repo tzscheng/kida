@@ -1,0 +1,212 @@
+#!/usr/bin/env -S uv run python
+# -*- mode: python -*-
+# Interactive UDP tester for the hand runner (runner.c).
+#
+#   ./runner-test -p 10000 [-s 24000] [-a 127.0.0.1] [-n L2]
+#
+# Top of the screen: latest status of every hand heard on the status port
+# (joint angles in degree, receive rate, age of the last packet), plus the
+# last commanded target and the tracking error. Middle: log. Bottom: command
+# line. Anything typed is sent to the runner as-is (jointpos / home / zero /
+# quit); local commands: 'exit' or Ctrl-C quits this tool (runner keeps
+# running), 'clear' clears the log. Up/Down recall command history.
+import argparse, curses, select, socket, time, math
+from collections import deque
+
+HOME_DEG = [40.1, 40.1, 40.1, 17.2, 17.2, 28.6, 28.6, 40.1, 40.1]   # runner.c h9_home_deg
+LOCAL_CMDS = ('exit', 'clear')
+
+def parse_args():
+    par = argparse.ArgumentParser(description='interactive UDP tester for the hand runner')
+    par.add_argument('-p', type=int, required=True, help='runner command port')
+    par.add_argument('-s', type=int, default=24000, help='status port to listen on (default 24000)')
+    par.add_argument('-a', default='127.0.0.1', help='runner address (default 127.0.0.1)')
+    par.add_argument('-n', default=None, help='hand name the target/error rows refer to (default: the only hand seen)')
+    return par.parse_args()
+
+class Status:
+    def __init__(self):
+        self.hands = {}            # name -> {'q': [...], 't': last time, 'stamps': deque}
+        self.order = []            # names in first-seen order
+
+    def feed(self, data, now):
+        w = data.decode(errors='replace').split()
+        if len(w) < 2: return
+        try: q = [float(x) for x in w[1:]]
+        except ValueError: return
+        h = self.hands.get(w[0])
+        if h is None:
+            h = self.hands[w[0]] = {'q': q, 't': now, 'stamps': deque()}
+            self.order.append(w[0])
+        h['q'] = q; h['t'] = now
+        h['stamps'].append(now)
+        while h['stamps'] and now - h['stamps'][0] > 1.0: h['stamps'].popleft()
+
+    def rate(self, name, now):
+        st = self.hands[name]['stamps']
+        while st and now - st[0] > 1.0: st.popleft()
+        return len(st)
+
+class Tester:
+    def __init__(self, arg):
+        self.arg = arg
+        self.tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.rx.bind(('127.0.0.1', arg.s))
+        self.rx.setblocking(False)
+        self.status = Status()
+        self.target = None         # last commanded target [deg]
+        self.target_label = ''
+        self.log = deque(maxlen=500)
+        self.line = ''
+        self.history = []; self.hidx = 0
+        self.msg(f"cmd -> {arg.a}:{arg.p}   status <- 127.0.0.1:{arg.s}   type 'exit' or Ctrl-C to leave")
+
+    def msg(self, s):
+        self.log.append(time.strftime('%H:%M:%S ') + s)
+
+    def n_joint(self):
+        name = self.target_hand()
+        if name: return len(self.status.hands[name]['q'])
+        return len(HOME_DEG)
+
+    def target_hand(self):
+        if self.arg.n: return self.arg.n if self.arg.n in self.status.hands else None
+        if len(self.status.order) == 1: return self.status.order[0]
+        return None
+
+    def send(self, cmd):
+        self.tx.sendto(cmd.encode(), (self.arg.a, self.arg.p))
+        self.msg('sent: ' + cmd)
+
+    def handle(self, text):
+        w = text.split()
+        if not w: return
+        if w[0] == 'exit': raise KeyboardInterrupt
+        if w[0] == 'clear': self.log.clear(); return
+
+        if w[0] == 'jointpos':
+            n = self.n_joint()
+            try: vals = [float(x) for x in w[1:]]
+            except ValueError: self.msg(f'error: jointpos values must be numbers: {text}'); return
+            if len(vals) != n or not all(math.isfinite(v) for v in vals):
+                self.msg(f'error: jointpos needs exactly {n} finite values (got {len(vals)})'); return
+            self.target, self.target_label = vals, 'jointpos'
+        elif w[0] == 'home':
+            if len(w) != 1: self.msg('error: home takes no arguments'); return
+            self.target, self.target_label = list(HOME_DEG), 'home'
+        elif w[0] == 'zero':
+            if len(w) != 1: self.msg('error: zero takes no arguments'); return
+            self.target, self.target_label = [0.0]*self.n_joint(), 'zero'
+        elif w[0] == 'quit':
+            if len(w) != 1: self.msg('error: quit takes no arguments'); return
+            self.target = None
+        else:
+            self.msg(f"warning: '{w[0]}' is not a runner command, sending anyway")
+        self.send(' '.join(w))
+
+    # ---------------- drawing ----------------
+    def draw(self, scr, now):
+        H, W = scr.getmaxyx()
+        scr.erase()
+        def put(y, x, s, attr=0):          # pad to the full width so stale text never survives
+            if 0 <= y < H and x < W - 1:
+                try: scr.addstr(y, x, s[:W - x - 1].ljust(W - x - 1), attr)
+                except curses.error: pass
+
+        put(0, 0, f' runner-test   cmd -> {self.arg.a}:{self.arg.p}   status <- :{self.arg.s} ', curses.A_REVERSE)
+        y = 1
+        names = self.status.order
+        n = self.n_joint()
+        hdr = f"{'hand':<8}" + ''.join(f'{"j%d" % (i+1):>8}' for i in range(n)) + f"{'Hz':>6}{'age':>8}"
+        put(y, 0, hdr, curses.A_BOLD); y += 1
+        if not names:
+            put(y, 0, '  (no status received yet)', curses.A_DIM); y += 1
+        thand = self.target_hand()
+        for name in names:
+            h = self.status.hands[name]
+            age = now - h['t']
+            attr = curses.A_BOLD if age > 1.0 else 0
+            row = f'{name:<8}' + ''.join(f'{v:8.2f}' for v in h['q']) + f'{self.status.rate(name, now):6d}{age:7.2f}s'
+            if age > 1.0: row += '  NO STATUS'
+            put(y, 0, row, attr); y += 1
+            if name == thand and self.target is not None and len(self.target) == len(h['q']):
+                put(y, 0, f'{"target":<8}' + ''.join(f'{v:8.2f}' for v in self.target) + f'  ({self.target_label})'); y += 1
+                err = [a - b for a, b in zip(h['q'], self.target)]
+                emax = max(abs(e) for e in err) if err else 0.0
+                put(y, 0, f'{"error":<8}' + ''.join(f'{e:8.2f}' for e in err) + f'  max {emax:.2f}'); y += 1
+        if len(names) > 1 and thand is None and self.target is not None:
+            put(y, 0, '  (several hands: use -n NAME to select the one the target refers to)', curses.A_DIM); y += 1
+
+        put(y, 0, '-' * (W - 1)); y += 1
+        nlog = max(0, H - y - 2)
+        for s in list(self.log)[-nlog:]:
+            put(y, 0, s); y += 1
+
+        put(H - 2, 0, '-' * (W - 1))
+        prompt = '> ' + self.line
+        put(H - 1, 0, prompt)
+        try: scr.move(H - 1, min(len(prompt), W - 1))
+        except curses.error: pass
+        scr.refresh()
+
+    # ---------------- input ----------------
+    def key(self, k):
+        if k in (curses.KEY_ENTER, 10, 13):
+            text = self.line.strip(); self.line = ''
+            if text:
+                if not self.history or self.history[-1] != text: self.history.append(text)
+                self.hidx = len(self.history)
+                self.handle(text)
+        elif k in (curses.KEY_BACKSPACE, 127, 8):
+            self.line = self.line[:-1]
+        elif k == curses.KEY_UP:
+            if self.history and self.hidx > 0:
+                self.hidx -= 1; self.line = self.history[self.hidx]
+        elif k == curses.KEY_DOWN:
+            if self.hidx < len(self.history) - 1:
+                self.hidx += 1; self.line = self.history[self.hidx]
+            else:
+                self.hidx = len(self.history); self.line = ''
+        elif k == 21:                                  # Ctrl-U: clear line
+            self.line = ''
+        elif 32 <= k < 127:
+            self.line += chr(k)
+
+    def run(self, scr):
+        curses.curs_set(1)
+        try: curses.set_escdelay(25)
+        except AttributeError: pass
+        scr.nodelay(True)
+        scr.keypad(True)
+        scr.idlok(False); scr.idcok(False)   # plain overwrite, no insert/delete optimizations
+        last_draw = 0.0
+        while True:
+            r, _, _ = select.select([self.rx], [], [], 0.02)
+            now = time.monotonic()
+            if r:
+                while True:
+                    try: data, _ = self.rx.recvfrom(4096)
+                    except BlockingIOError: break
+                    self.status.feed(data, now)
+            while True:
+                k = scr.getch()
+                if k == -1: break
+                if k == curses.KEY_RESIZE: last_draw = 0.0; continue
+                self.key(k); last_draw = 0.0
+            if now - last_draw >= 0.1:
+                self.draw(scr, now); last_draw = now
+
+def main():
+    arg = parse_args()
+    try: t = Tester(arg)
+    except OSError as e:
+        print(f'cannot listen on 127.0.0.1:{arg.s}: {e}')
+        print('another program may be bound to the status port; start the runner with -s <port> and pass the same -s here')
+        return 1
+    try: curses.wrapper(t.run)
+    except KeyboardInterrupt: pass
+    return 0
+
+if __name__ == '__main__':
+    raise SystemExit(main())
