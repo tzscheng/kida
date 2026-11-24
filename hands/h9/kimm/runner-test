@@ -2,7 +2,7 @@
 # -*- mode: python -*-
 # Interactive UDP tester for the hand runner (runner.c).
 #
-#   ./runner-test -p 10000 [-s 24000] [-a 127.0.0.1] [-n L2]
+#   ./runner-test [L2] [-p 10000] [-s 24000] [-a 127.0.0.1]
 #
 # Top of the screen: latest status of every hand heard on the status port
 # (joint angles in degree, receive rate, age of the last packet), plus the
@@ -18,11 +18,11 @@ LOCAL_CMDS = ('exit', 'clear')
 
 def parse_args():
     par = argparse.ArgumentParser(description='interactive UDP tester for the hand runner')
-    par.add_argument('-p', type=int, required=True, help='runner command port')
+    par.add_argument('-p', type=int, default=10000, help='runner command port (default 10000)')
     par.add_argument('-s', type=int, default=24000, help='status port to listen on (default 24000)')
     par.add_argument('-a', default='127.0.0.1', help='runner address (default 127.0.0.1)')
-    par.add_argument('-n', default=None, help='hand name the target/error rows refer to (default: the only hand seen)')
-    return par.parse_args()
+    par.add_argument('name', nargs='?', default=None, help='hand name the target/error rows refer to (default: the only hand seen)')
+    return par.parse_intermixed_args()   # name may come before or after the options
 
 class Status:
     def __init__(self):
@@ -71,7 +71,7 @@ class Tester:
         return len(HOME_DEG)
 
     def target_hand(self):
-        if self.arg.n: return self.arg.n if self.arg.n in self.status.hands else None
+        if self.arg.name: return self.arg.name if self.arg.name in self.status.hands else None
         if len(self.status.order) == 1: return self.status.order[0]
         return None
 
@@ -136,7 +136,7 @@ class Tester:
                 emax = max(abs(e) for e in err) if err else 0.0
                 put(y, 0, f'{"error":<8}' + ''.join(f'{e:8.2f}' for e in err) + f'  max {emax:.2f}'); y += 1
         if len(names) > 1 and thand is None and self.target is not None:
-            put(y, 0, '  (several hands: use -n NAME to select the one the target refers to)', curses.A_DIM); y += 1
+            put(y, 0, '  (several hands: give the hand NAME as an argument to select the one the target refers to)', curses.A_DIM); y += 1
 
         put(y, 0, '-' * (W - 1)); y += 1
         nlog = max(0, H - y - 2)

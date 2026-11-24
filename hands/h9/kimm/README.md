@@ -39,13 +39,13 @@ runner가 CAN 버스, PWM duty 제어 루프, 설정 파일(`conf.txt`)을 담�
 sudo ip link set can0 up type can bitrate 1000000
 
 # 2. runner 실행 (conf.txt가 있는 이 폴더에서)
-./runner -p 10000 -n L2
+./runner L2                        # 핸드 이름은 옵션 없이 인자로 준다 (포트 등은 ./runner L2 -p 10000)
 ```
 
 | 옵션 | 설명 | 기본값 |
 | --- | --- | --- |
-| `-p` | 명령 수신 UDP 포트 (필수) | |
-| `-n` | 핸드 이름 = `conf.txt`의 항목 이름 (필수) | |
+| `<핸드 이름>` | `conf.txt`의 항목 이름 (필수, 옵션 없이 주는 인자) | |
+| `-p` | 명령 수신 UDP 포트 | `10000` |
 | `-c` | SocketCAN 채널 번호 (`canN`) | 0 |
 | `-f` | 설정 파일 경로 | `conf.txt` |
 | `-m` | 핸드 모델 | `h9` |
@@ -55,8 +55,8 @@ sudo ip link set can0 up type can bitrate 1000000
 핸드 두 대 예시:
 
 ```bash
-./runner -p 10000 -n L2 -c 0 &
-./runner -p 10001 -n R2 -c 1 &
+./runner L2 -p 10000 -c 0 &
+./runner R2 -p 10001 -c 1 &
 ```
 
 두 runner 모두 상태를 24000 포트로 보내며, 상태 메시지의 첫 단어(핸드 이름)로 구분한다.
@@ -113,14 +113,14 @@ L2    L          0.422       0.250         0.75     0.75     590 1516 1277 1326 
 ### 시뮬레이션
 
 ```bash
-./runner-sim -p 10000 -n L2        # CAN 없이 동작
+./runner-sim L2 -p 10000        # CAN 없이 동작
 ```
 
 ### runner-test (대화형)
 
 ```bash
-./runner-test -p 10000             # 명령 포트
-./runner-test -p 10000 -n L2       # 핸드가 여러 대일 때 목표/오차 행을 표시할 핸드
+./runner-test                      # 명령 포트 기본 10000 (-p 로 변경)
+./runner-test L2 -p 10000       # 핸드가 여러 대일 때 목표/오차 행을 표시할 핸드
 ./runner-test -p 10000 -s 24001    # runner를 -s 24001 로 띄웠을 때
 ```
 
@@ -147,6 +147,6 @@ UDP 프로토콜, 궤적 생성, 제어 루프는 공용이다.
 ## 실물 첫 시험 시 권장 순서
 
 1. 핸드를 zero 자세 근처에 두고 전원/CAN 연결 (PC 쪽 120Ω 종단 저항 필요).
-2. `./runner -p 10000 -n L2 -v`로 띄워 초기 관절각 출력이 0 근처인지 확인.
+2. `./runner L2 -v`로 띄워 초기 관절각 출력이 0 근처인지 확인.
 3. `runner-test`로 `zero` → `home` → 작은 `jointpos` 순으로 시험.
 4. 필요하면 `h9_qmin_deg` / `h9_qmax_deg`, `kp`, `pose_ticks`를 조정.

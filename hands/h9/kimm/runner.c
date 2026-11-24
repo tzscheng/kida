@@ -13,12 +13,13 @@
  *        software motor model; for testing the UDP protocol / control loop)
  *
  * Run:
- *   ./runner -p <udp port> -n <hand name> [-c <can ch>] [-f <conf file>]
+ *   ./runner <hand name> [-p <udp port>] [-c <can ch>] [-f <conf file>]
  *            [-m <model>] [-s <status port>] [-v]
- *   e.g.  ./runner -p 10000 -n L1
+ *   e.g.  ./runner L1          or   ./runner L1 -p 10000
  *
- *   -p  UDP port this runner listens on for commands        (required)
- *   -n  hand name = entry name in the configuration file    (required)
+ *   <hand name>  entry name in the configuration file (required; the one
+ *                non-option argument, may come before or after the options)
+ *   -p  UDP port this runner listens on for commands        (default 10000)
  *   -c  SocketCAN channel number (can<N>)                   (default 0)
  *   -f  configuration file                                  (default conf.txt)
  *   -m  hand model                                          (default h9)
@@ -69,6 +70,7 @@
 #define DT               0.004       /* control period [s] (250 Hz)           */
 #define STATUS_PERIOD    0.01        /* status send period [s] (100 Hz)       */
 #define STATUS_ADDR      "127.0.0.1"
+#define CMD_PORT         10000       /* default UDP command port (-p)         */
 #define STATUS_PORT      24000
 #define CMD_MAX          1024
 
@@ -454,13 +456,13 @@ static void tadd(struct timespec *t, double sec)
 static void usage(const char *prog)
 {
     fprintf(stderr,
-        "usage: %s -p <udp port> -n <hand name> [-c <can ch>] [-f <conf file>]\n"
+        "usage: %s <hand name> [-p <udp port>] [-c <can ch>] [-f <conf file>]\n"
         "          [-m <model>] [-s <status port>] [-v]\n"
-        "  -p  UDP command port (required)      -n  hand name in conf file (required)\n"
-        "  -c  CAN channel (default 0)          -f  config file (default conf.txt)\n"
-        "  -m  hand model (default h9)          -s  status UDP port (default %d)\n"
-        "  -v  verbose\n"
-        "example: %s -p 10000 -n L1\n", prog, STATUS_PORT, prog);
+        "  <hand name>  entry name in conf file (required)\n"
+        "  -p  UDP command port (default %d) -c  CAN channel (default 0)\n"
+        "  -f  config file (default conf.txt)   -m  hand model (default h9)\n"
+        "  -s  status UDP port (default %d)  -v  verbose\n"
+        "example: %s L1 -p 10000\n", prog, CMD_PORT, STATUS_PORT, prog);
 }
 
 static int parse_int(const char *s, int lo, int hi, int *out)
@@ -506,13 +508,12 @@ static int parse_command(char *buf, int n, double *tgt_deg)
 
 int main(int argc, char *argv[])
 {
-    int  port = -1, status_port = STATUS_PORT, can_ch = 0, verbose = 0, opt;
+    int  port = CMD_PORT, status_port = STATUS_PORT, can_ch = 0, verbose = 0, opt;
     const char *name = NULL, *conf = "conf.txt", *model = "h9";
 
-    while ((opt = getopt(argc, argv, "p:n:c:f:m:s:vh")) != -1) {
+    while ((opt = getopt(argc, argv, "p:c:f:m:s:vh")) != -1) {
         switch (opt) {
         case 'p': if (parse_int(optarg, 1, 65535, &port) < 0) { usage(argv[0]); return 64; } break;
-        case 'n': name = optarg; break;
         case 'c': if (parse_int(optarg, 0, 255, &can_ch) < 0) { usage(argv[0]); return 64; } break;
         case 'f': conf = optarg; break;
         case 'm': model = optarg; break;
@@ -522,7 +523,10 @@ int main(int argc, char *argv[])
         default:  usage(argv[0]); return 64;
         }
     }
-    if (port < 0 || name == NULL || optind != argc) { usage(argv[0]); return 64; }
+    /* the hand name is the single non-option argument; glibc getopt permutes
+       argv, so it may appear before or after the options */
+    if (optind != argc - 1) { usage(argv[0]); return 64; }
+    name = argv[optind];
 
     const hand_driver_t *hand = find_driver(model);
     if (hand == NULL) {
