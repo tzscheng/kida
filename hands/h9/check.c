@@ -104,7 +104,6 @@ int main(int argc, char* argv[]) {
     char* name = NULL;
     char buf[256];
     int send_id[3];
-    int recv_id;
     int tmp[9];
     
     while((opt = getopt(argc, (char* const*)argv, "c:n:")) != -1) {
@@ -186,8 +185,10 @@ int main(int argc, char* argv[]) {
 	    for(j = 0; j < 3; j++) tmp[j] = duty[3*i+j];
 	    tmp[3] = 0x0001;
 
-	    can_send_u16s(fd, send_id[i], tmp, 4);
-	    can_recv_u16s(fd, &recv_id, tmp, 3);
+	    if (can_xfer_u16s(fd, send_id[i], tmp, 4, 3) <= 0) {
+		fprintf(stderr, "CAN receive failed (id 0x%x), keeping the last reading\n", send_id[i]);
+		continue;
+	    }
 	    for(j = 0; j < 3; j++) dpos[3*i+j] = tmp[j];
 	}	
 
@@ -231,8 +232,7 @@ int main(int argc, char* argv[]) {
 	for(j = 0; j < 3; j++) tmp[j] = 0x8000;
 	tmp[3] = 0x0001;
 
-	can_send_u16s(fd, send_id[i], tmp, 4);
-	can_recv_u16s(fd, &recv_id, tmp, 3);
+	can_xfer_u16s(fd, send_id[i], tmp, 4, 3);
     }
     
     usleep(10000);

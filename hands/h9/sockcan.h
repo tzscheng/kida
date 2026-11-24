@@ -75,3 +75,36 @@ int can_recv_u16s(int fd, int *id, int *d, int n){
     for(i = 0; i < n; i++) d[i] = (int)frame.data[2*i]*256 + (int)frame.data[2*i+1];
     return ret;
 }
+
+
+/* One request/reply round trip with a motor board.
+ *
+ * The board answers a request on CAN ID `id` with a frame on `id + 1`
+ * (0x10 -> 0x11, 0x20 -> 0x21, 0x30 -> 0x31, 0x40 -> 0x41). Matching the
+ * reply by order alone is not safe: a reply that arrives after the receive
+ * timeout would be read as the answer to the NEXT request, and from then on
+ * every encoder group would land on the wrong joints. So frames already
+ * waiting are thrown away before sending, and only a frame with the expected
+ * ID is accepted.
+ *
+ * d[0..n_send-1] is sent; on success d[0..n_recv-1] holds the reply and the
+ * return value is > 0. On failure (<= 0) d is left as it was sent. */
+int can_xfer_u16s(int fd, int id, int *d, int n_send, int n_recv){
+    struct can_frame frame;
+    int i, k, ret;
+
+    while (recv(fd, &frame, sizeof(frame), MSG_DONTWAIT) > 0) ;   //drop late replies
+
+    if (can_send_u16s(fd, id, d, n_send) < 0) return -1;
+
+    for(k = 0; k < 16; k++){   //bounded: skip at most a few foreign frames
+	ret = read(fd, &frame, sizeof(frame));
+	if (ret <= 0) return ret;
+	if ((int)frame.can_id != id + 1) continue;
+
+	for(i = 0; i < n_recv; i++) d[i] = (int)frame.data[2*i]*256 + (int)frame.data[2*i+1];
+	return ret;
+    }
+
+    return 0;
+}

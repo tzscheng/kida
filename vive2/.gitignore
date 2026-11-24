@@ -1,3 +1,12 @@
-/minimal
+/minimal/minimal
+/gui-test/gui-test
+/gui-test/test_arm_ik
+/vmaster2/vmaster2
+/vmaster2/test_vmaster2
+*.ppm
 *.log
-!/libultimate-tracker.so
+__pycache__/
+!/sdk/libultimate-tracker.so
+!/minimal/libultimate-tracker.so
+!/gui-test/libultimate-tracker.so
+!/vmaster2/libultimate-tracker.so

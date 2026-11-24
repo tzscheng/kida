@@ -47,3 +47,6 @@ dist/
 .DS_Store
 *.swp
 *~
+
+# ── Manus SDK가 실행 폴더에 만드는 빈 로그 ──
+hands/h9/kimm/log.txt

@@ -160,14 +160,16 @@ static int can_recv_u16s(int fd, int *id, int *d, int n)
 /* 3 raw 12-bit magnetic encoder readings (0..4095, one motor turn).         */
 /*                                                                           */
 /* conf.txt line:                                                            */
-/*   name type pulley_thumb pulley_finger couple0 couple1 zero1 ... zero9    */
+/*   name type pulley0 pulley1 couple0 couple1 zero1 ... zero9               */
+/*   (pulley1 = thumb1 (CMC) only, pulley0 = the other 8 joints)             */
 /*   e.g. "L2  L  0.422 0.250  0.75 0.75  590 1516 1277 1326 2884 ..."       */
 /* The 9 zero values are the raw encoder readings at the zero pose, in joint */
 /* order (thumb1..3 index1..2 middle1..2 ring1..2).                          */
 /* ------------------------------------------------------------------------ */
 #define H9_N 9
+#define H9_REPLY_ID_OFFSET 1         /* reply CAN ID = request CAN ID + 1 (0x10 -> 0x11) */
 
-static const double h9_home_deg[H9_N] = {40.1, 40.1, 40.1,  17.2, 17.2,  28.6, 28.6,  40.1, 40.1}; /* = h9.py home (rad) */
+static const double h9_home_deg[H9_N] = {40.1, 40.1, 40.1,  17.2, 17.2,  28.6, 28.6,  40.1, 40.1}; /* 0.7 0.3 0.5 rad */
 static const double h9_qmin_deg[H9_N] = {-60, -60, -60,  -60, -60,  -60, -60,  -60, -60};
 static const double h9_qmax_deg[H9_N] = {120, 120, 120,  120, 120,  120, 120,  120, 120};
 
@@ -226,10 +228,29 @@ static int h9_can_exchange(const int *duty)
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) tmp[j] = duty[3*i + j];
         tmp[3] = 0x0001;
+
+        /* Throw away whatever is already waiting (a reply that arrived
+         * after its timeout). */
+        struct can_frame old;
+        while (recv(h9.fd, &old, sizeof(old), MSG_DONTWAIT) > 0) ;
+
         if (can_send_u16s(h9.fd, h9.send_id[i], tmp, 4) < 0) return -1;
-        int ret = can_recv_u16s(h9.fd, &recv_id, tmp, 3);
+
+        /* A board answers with its request ID + 1 (0x10 -> 0x11 ...). Wait
+         * for exactly that ID: a frame with another ID is some other board's
+         * late reply, and taking it would put the encoder feedback on the
+         * wrong joints. */
+        int want = h9.send_id[i] + H9_REPLY_ID_OFFSET, ret;
+        struct timespec t0, t;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        for (;;) {
+            ret = can_recv_u16s(h9.fd, &recv_id, tmp, 3);
+            if (ret > 0 && recv_id == want) break;
+            clock_gettime(CLOCK_MONOTONIC, &t);
+            if (ret <= 0 || (double)(t.tv_sec - t0.tv_sec) + 1.0e-9*(double)(t.tv_nsec - t0.tv_nsec) >= 0.5) { ret = -1; break; }
+        }
         if (ret <= 0) {
-            fprintf(stderr, "h9: CAN receive failed (board %d, id 0x%x)\n", i, h9.send_id[i]);
+            fprintf(stderr, "h9: CAN receive failed (board %d, request 0x%x, reply 0x%x)\n", i, h9.send_id[i], want);
             return -1;
         }
         for (int j = 0; j < 3; j++) h9.dpos[3*i + j] = tmp[j];
@@ -392,26 +413,30 @@ static const hand_driver_t *find_driver(const char *model)
 /*                                                                           */
 /* A linear path of T steps from p0 to p1 is pushed into a queue; every tick */
 /* the mean of the first `ws` queued points is emitted and the head popped,  */
-/* with the window growing from 1 up to TRJ_WINDOW. The output reaches p1    */
+/* with the window growing from 1 up to `window`. The output reaches p1      */
 /* after about T ticks and then holds it.                                    */
+/* window = 1 gives the plain linear path (constant velocity, p1 after       */
+/* exactly T ticks); it is used for streamed commands.                       */
 /* ------------------------------------------------------------------------ */
 #define TRJ_MAXLEN 4096
 #define TRJ_WINDOW 1000
 
 typedef struct {
     double buf[TRJ_MAXLEN][MAX_JOINT];
-    int head, len, ws, n;
+    int head, len, ws, wmax, n;
 } trj_t;
 
 static trj_t trj;
 
-static void trj_target(trj_t *t, int n, const double *p0, const double *p1, int T)
+static void trj_target(trj_t *t, int n, const double *p0, const double *p1, int T, int window)
 {
     if (T < 1) T = 1;
     if (T > TRJ_MAXLEN - 1) T = TRJ_MAXLEN - 1;
-    t->n = n; t->head = 0; t->len = 0; t->ws = 1;
+    t->n = n; t->head = 0; t->len = 0; t->ws = 1; t->wmax = window;
 
-    memcpy(t->buf[t->len++], p0, sizeof(double)*n);
+    /* the linear path starts one step ahead of p0: p0 is where the reference
+       already is, repeating it would stop the motion for one tick */
+    if (window > 1) memcpy(t->buf[t->len++], p0, sizeof(double)*n);
     for (int j = 1; j <= T; j++) {
         for (int k = 0; k < n; k++) t->buf[t->len][k] = p0[k] + (p1[k] - p0[k])*((double)j/T);
         t->len++;
@@ -429,7 +454,7 @@ static void trj_generate(trj_t *t, double *out)
     for (int k = 0; k < t->n; k++) out[k] /= t->ws;
 
     if (t->len > 1) { t->head = (t->head + 1) % TRJ_MAXLEN; t->len--; }
-    if (t->ws < TRJ_WINDOW) t->ws++;
+    if (t->ws < t->wmax) t->ws++;
     if (t->ws > t->len) t->ws = t->len;
 }
 
@@ -437,6 +462,11 @@ static void trj_generate(trj_t *t, double *out)
 /* runner                                                                    */
 /* ------------------------------------------------------------------------ */
 enum { MODE_IDLE = 0, MODE_TRACK = 1 };
+
+/* jointpos commands that follow each other within this many ticks (0.2 s) are
+   a stream (teleoperation): the reference then moves linearly to each new
+   target over one command period instead of jumping to it */
+#define STREAM_GAP 50
 
 static volatile sig_atomic_t exiting;
 static void on_signal(int sig) { (void)sig; exiting = 1; }
@@ -575,7 +605,8 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     int  mode = MODE_IDLE, rc = 0, can_fail = 0;
-    long tick = 0;
+    long tick = 0, last_jointpos = -STREAM_GAP;
+    double stream_period = 0.0;          /* filtered jointpos period [ticks], 0 = no stream */
     struct timespec next, next_status, now;
     clock_gettime(CLOCK_MONOTONIC, &next);
     next_status = next;
@@ -611,15 +642,29 @@ int main(int argc, char *argv[])
                 tgt[i] = d*M_PI/180.0;
             }
 
-            /* duration: fixed for home/zero, proportional to the error for jointpos */
-            int T;
-            if (cmd == CMD_JOINTPOS) {
+            /* duration: fixed for home/zero, proportional to the error for a
+               single jointpos, one command period for streamed jointpos */
+            int T, window = TRJ_WINDOW;
+            if (cmd == CMD_JOINTPOS && tick - last_jointpos < STREAM_GAP) {
+                double gap = (double)(tick - last_jointpos);
+                stream_period = (stream_period > 0.0) ? stream_period + 0.2*(gap - stream_period) : gap;
+                T = (int)lround(stream_period);
+                window = 1;
+            } else if (cmd == CMD_JOINTPOS) {
                 double e2 = 0.0;
                 for (int i = 0; i < n; i++) e2 += (tgt[i] - q[i])*(tgt[i] - q[i]);
                 T = (int)(0.06*(1.0/DT)*sqrt(e2)) + 1;
-            } else T = hand->pose_ticks;
+                stream_period = 0.0;
+            } else {
+                T = hand->pose_ticks;
+                stream_period = 0.0;
+            }
+            if (cmd == CMD_JOINTPOS) last_jointpos = tick;
 
-            trj_target(&trj, n, q, tgt, T);
+            /* While tracking, continue from the current reference, not from
+               the measured position: restarting at q would make the position
+               error, and with it the motor duty, drop to zero at every command. */
+            trj_target(&trj, n, mode == MODE_TRACK ? q_ref : q, tgt, T, window);
             mode = MODE_TRACK;
             if (verbose) {
                 printf("runner: %s ->", cmd == CMD_HOME ? "home" : cmd == CMD_ZERO ? "zero" : "jointpos");

@@ -12,7 +12,6 @@ static long cnt;
 static char type = '\0';
 
 static int send_id[3];
-static int recv_id;
 
 static int m_dir[9];
 static int e_dir[9];
@@ -62,8 +61,7 @@ static int exchange_can_duty(int *duty_cmd){
 	for(int j = 0; j < 3; j++) tmp[j] = duty_cmd[3*i+j];
 	tmp[3] = 0x0001;
 
-	if (can_send_u16s(fd, send_id[i], tmp, 4) < 0) return -1;
-	int ret = can_recv_u16s(fd, &recv_id, tmp, 3);
+	int ret = can_xfer_u16s(fd, send_id[i], tmp, 4, 3);
 	if (ret <= 0) {
 	    fprintf(stderr, "CAN receive failed at frame %d send_id=0x%x ret=%d\n", i, send_id[i], ret);
 	    fflush(stderr);
@@ -229,8 +227,7 @@ void finish(){
     for(int i = 0; i < 3; i++){
 	for(int j = 0; j < 3; j++) tmp[j] = 0x8000;
 	tmp[3] = 0x0001;
-	can_send_u16s(fd, send_id[i], tmp, 4);
-	can_recv_u16s(fd, &recv_id, tmp, 3);
+	can_xfer_u16s(fd, send_id[i], tmp, 4, 3);
     }
     
     usleep(100000);

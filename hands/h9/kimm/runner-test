@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run python
+#!/usr/bin/env python3
 # -*- mode: python -*-
 # Interactive UDP tester for the hand runner (runner.c).
 #
@@ -9,7 +9,8 @@
 # last commanded target and the tracking error. Middle: log. Bottom: command
 # line. Anything typed is sent to the runner as-is (jointpos / home / zero /
 # quit); local commands: 'exit' or Ctrl-C quits this tool (runner keeps
-# running), 'clear' clears the log. Up/Down recall command history.
+# running), 'clear' clears the log. Up/Down recall command history; Left/Right/
+# Home/End move the cursor to edit the line.
 import argparse, curses, select, socket, time, math
 from collections import deque
 
@@ -58,7 +59,7 @@ class Tester:
         self.target = None         # last commanded target [deg]
         self.target_label = ''
         self.log = deque(maxlen=500)
-        self.line = ''
+        self.line = ''; self.cur = 0     # input line and cursor position in it
         self.history = []; self.hidx = 0
         self.msg(f"cmd -> {arg.a}:{arg.p}   status <- 127.0.0.1:{arg.s}   type 'exit' or Ctrl-C to leave")
 
@@ -144,34 +145,47 @@ class Tester:
             put(y, 0, s); y += 1
 
         put(H - 2, 0, '-' * (W - 1))
-        prompt = '> ' + self.line
-        put(H - 1, 0, prompt)
-        try: scr.move(H - 1, min(len(prompt), W - 1))
+        room = max(1, W - 4)                # columns for the line; scroll it so the cursor stays visible
+        off = max(0, self.cur - room + 1)
+        put(H - 1, 0, '> ' + self.line[off:off + room])
+        try: scr.move(H - 1, min(2 + self.cur - off, W - 1))
         except curses.error: pass
         scr.refresh()
 
     # ---------------- input ----------------
     def key(self, k):
         if k in (curses.KEY_ENTER, 10, 13):
-            text = self.line.strip(); self.line = ''
+            text = self.line.strip(); self.line = ''; self.cur = 0
             if text:
                 if not self.history or self.history[-1] != text: self.history.append(text)
                 self.hidx = len(self.history)
                 self.handle(text)
         elif k in (curses.KEY_BACKSPACE, 127, 8):
-            self.line = self.line[:-1]
+            if self.cur > 0:
+                self.line = self.line[:self.cur - 1] + self.line[self.cur:]; self.cur -= 1
+        elif k == curses.KEY_DC:                       # Delete: character under the cursor
+            self.line = self.line[:self.cur] + self.line[self.cur + 1:]
+        elif k == curses.KEY_LEFT:
+            self.cur = max(0, self.cur - 1)
+        elif k == curses.KEY_RIGHT:
+            self.cur = min(len(self.line), self.cur + 1)
+        elif k in (curses.KEY_HOME, 1):                # Home / Ctrl-A
+            self.cur = 0
+        elif k in (curses.KEY_END, 5):                 # End / Ctrl-E
+            self.cur = len(self.line)
         elif k == curses.KEY_UP:
             if self.history and self.hidx > 0:
-                self.hidx -= 1; self.line = self.history[self.hidx]
+                self.hidx -= 1; self.line = self.history[self.hidx]; self.cur = len(self.line)
         elif k == curses.KEY_DOWN:
             if self.hidx < len(self.history) - 1:
                 self.hidx += 1; self.line = self.history[self.hidx]
             else:
                 self.hidx = len(self.history); self.line = ''
+            self.cur = len(self.line)
         elif k == 21:                                  # Ctrl-U: clear line
-            self.line = ''
+            self.line = ''; self.cur = 0
         elif 32 <= k < 127:
-            self.line += chr(k)
+            self.line = self.line[:self.cur] + chr(k) + self.line[self.cur:]; self.cur += 1
 
     def run(self, scr):
         curses.curs_set(1)
